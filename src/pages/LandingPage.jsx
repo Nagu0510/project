@@ -1,634 +1,484 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  Sparkles,
-  ArrowRight,
-  ArrowUpRight,
-  CheckCircle2,
-  TrendingUp,
-  Brain,
-  Layers,
-  Compass,
-  FileCheck2,
-  FileSpreadsheet,
-  Award,
-  ShieldCheck,
-} from 'lucide-react';
+import { motion, useInView } from 'framer-motion';
 import { Navbar } from '../components/common/Navbar';
-import { Button } from '../components/common/Button';
-import { mockCareerPaths } from '../data/mockCareerPaths';
-import { mockTopicFrequencies } from '../data/mockPreviousQuestions';
-import { mockQuestionPaperStats } from '../data/mockQuestionPapers';
 import { SkillSenseCore3D } from '../components/three/SkillSenseCore3D';
-import { QuestionNetwork3D } from '../components/three/QuestionNetwork3D';
+
+const RevealSection = ({ children, delay = 0, style = {}, className = '' }) => {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.8, delay, ease: [0.16, 1, 0.3, 1] }}
+      style={style}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+};
+
+const FeatureCard = ({ icon, title, description, delay }) => {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-40px' });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 30 }}
+      animate={inView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -6, boxShadow: '0 16px 40px -8px rgba(18,55,42,0.12)' }}
+      style={{
+        background: 'var(--color-white)',
+        border: '1px solid var(--color-border-subtle)',
+        borderRadius: 'var(--radius-xl)',
+        padding: '2rem',
+        boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      <div style={{
+        width: '48px', height: '48px',
+        background: 'var(--color-forest)',
+        borderRadius: 'var(--radius-md)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: '1rem', fontSize: '1.25rem',
+      }}>
+        {icon}
+      </div>
+      <h3 style={{
+        fontFamily: 'var(--font-sans)', fontSize: '1.0625rem',
+        fontWeight: 700, color: 'var(--color-forest)', marginBottom: '0.5rem',
+      }}>
+        {title}
+      </h3>
+      <p style={{ fontSize: '0.9rem', lineHeight: 1.65, color: 'var(--color-text-muted)' }}>
+        {description}
+      </p>
+    </motion.div>
+  );
+};
+
+const CareerCard = ({ name, icon, skills, delay }) => {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-40px' });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={inView ? { opacity: 1, scale: 1 } : {}}
+      transition={{ duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <Link to="/career-paths" style={{ textDecoration: 'none', display: 'block' }}>
+        <motion.div
+          style={{
+            background: 'var(--color-white)',
+            border: '1px solid var(--color-border-subtle)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '1.75rem',
+            boxShadow: 'var(--shadow-sm)',
+            height: '100%',
+          }}
+          whileHover={{ y: -6, boxShadow: '0 20px 48px -8px rgba(18,55,42,0.12)', borderColor: 'rgba(18,55,42,0.18)' }}
+          transition={{ duration: 0.2 }}
+        >
+          <div style={{ fontSize: '2rem', marginBottom: '0.875rem' }}>{icon}</div>
+          <h3 style={{
+            fontFamily: 'var(--font-sans)', fontSize: '1rem',
+            fontWeight: 700, color: 'var(--color-forest)', marginBottom: '0.625rem',
+          }}>
+            {name}
+          </h3>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+            {(skills || []).slice(0, 4).map((s) => (
+              <span key={s} className="badge badge-neutral" style={{ fontSize: '0.7rem' }}>{s}</span>
+            ))}
+          </div>
+          <div style={{
+            marginTop: '1rem', display: 'flex', alignItems: 'center',
+            gap: '4px', color: 'var(--color-emerald)', fontSize: '0.8125rem', fontWeight: 700,
+          }}>
+            Explore path <span>&#8594;</span>
+          </div>
+        </motion.div>
+      </Link>
+    </motion.div>
+  );
+};
+
+const RoadmapStep = ({ number, label, active, delay }) => {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-40px' });
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, x: -20 }}
+      animate={inView ? { opacity: 1, x: 0 } : {}}
+      transition={{ duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '1rem',
+        padding: '1rem 1.25rem',
+        background: active ? 'var(--color-forest)' : 'var(--color-white)',
+        border: `1px solid ${active ? 'var(--color-forest)' : 'var(--color-border-subtle)'}`,
+        borderRadius: 'var(--radius-lg)',
+        boxShadow: active ? 'var(--shadow-md)' : 'var(--shadow-xs)',
+      }}
+    >
+      <span style={{
+        width: '32px', height: '32px', borderRadius: '50%',
+        background: active ? 'var(--color-lime)' : 'var(--color-ivory-muted)',
+        color: active ? 'var(--color-forest)' : 'var(--color-text-muted)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontFamily: 'var(--font-sans)', fontWeight: 800, fontSize: '0.75rem', flexShrink: 0,
+      }}>
+        {number}
+      </span>
+      <span style={{
+        fontSize: '0.9rem', fontWeight: 600,
+        color: active ? 'var(--color-ivory)' : 'var(--color-forest)',
+      }}>
+        {label}
+      </span>
+      {active && (
+        <span style={{
+          marginLeft: 'auto', fontSize: '0.7rem', fontWeight: 700,
+          background: 'var(--color-lime)', color: 'var(--color-forest)',
+          padding: '2px 8px', borderRadius: 'var(--radius-full)',
+        }}>
+          CURRENT
+        </span>
+      )}
+    </motion.div>
+  );
+};
 
 export const LandingPage = () => {
-  const orbitalSkills = [
-    { name: 'Python', top: '12%', left: '15%', delay: '0s' },
-    { name: 'Java', top: '18%', right: '12%', delay: '1s' },
-    { name: 'React', bottom: '22%', left: '10%', delay: '2s' },
-    { name: 'DSA', bottom: '15%', right: '18%', delay: '1.5s' },
-    { name: 'AI', top: '48%', left: '4%', delay: '0.8s' },
-    { name: 'SQL', top: '52%', right: '6%', delay: '2.2s' },
-    { name: 'Cloud', top: '5%', left: '50%', delay: '1.2s' },
-    { name: 'MongoDB', bottom: '8%', left: '45%', delay: '2.5s' },
+  const careerPaths = [
+    { name: 'Frontend Developer', icon: '\ud83c\udfa8', skills: ['React', 'JavaScript', 'CSS', 'TypeScript'] },
+    { name: 'Backend Developer', icon: '\u2699\ufe0f', skills: ['Python', 'FastAPI', 'SQL', 'MongoDB'] },
+    { name: 'Full Stack Developer', icon: '\ud83d\udd04', skills: ['React', 'Node.js', 'SQL', 'Docker'] },
+    { name: 'Data Scientist', icon: '\ud83d\udcca', skills: ['Python', 'ML', 'Pandas', 'TensorFlow'] },
+    { name: 'AI / ML Engineer', icon: '\ud83e\udd16', skills: ['Python', 'NLP', 'PyTorch', 'NumPy'] },
+    { name: 'Cloud / DevOps', icon: '\u2601\ufe0f', skills: ['Docker', 'Kubernetes', 'AWS', 'Terraform'] },
+  ];
+
+  const roadmapSteps = [
+    { number: '01', label: 'Foundations & Programming Basics' },
+    { number: '02', label: 'Data Structures & Algorithms' },
+    { number: '03', label: 'Core Technologies' },
+    { number: '04', label: 'Projects & Portfolio', active: true },
+    { number: '05', label: 'Advanced Specialization' },
+    { number: '06', label: 'Deployment & DevOps' },
+    { number: '07', label: 'Placement Preparation' },
+    { number: '08', label: 'Career Ready \u2726' },
+  ];
+
+  const features = [
+    { icon: '\ud83c\udfaf', title: 'Adaptive Skill Assessment', description: 'Structured tests across Easy, Medium, and Hard levels covering Python, Java, DSA, SQL, React, and more.' },
+    { icon: '\ud83d\uddfa\ufe0f', title: 'Personalized Career Roadmap', description: 'Dynamically generated roadmaps based on your career goal, assessment scores, and skill gaps.' },
+    { icon: '\ud83d\udcbb', title: 'Coding Practice Arena', description: 'LeetCode-style problems with placement-company tagging and previous question intelligence.' },
+    { icon: '\ud83d\udcc4', title: 'Resume Intelligence', description: 'Upload your resume and get instant ATS analysis, missing skill detection, and role-specific recommendations.' },
+    { icon: '\ud83d\udd0d', title: 'Question Intelligence', description: 'TF-IDF + cosine similarity matching against a curated bank of TCS, Infosys, Accenture, and Amazon questions.' },
+    { icon: '\ud83c\udfe2', title: 'Placement Readiness', description: 'See how your skills match against real placement opportunities with company-specific skill gap analysis.' },
   ];
 
   return (
-    <div style={{ backgroundColor: 'var(--color-warm-ivory)', minHeight: '100vh', overflowX: 'hidden' }}>
+    <div style={{ backgroundColor: 'var(--color-ivory)', minHeight: '100vh', overflowX: 'hidden' }}>
       <Navbar />
 
-      {/* =========================================================================
-          HERO SECTION with AI Core Visualization & Floating Career Readiness Card
-          ========================================================================= */}
-      <section style={{ padding: '4.5rem 0 3.5rem', position: 'relative' }}>
-        <div className="container-custom" style={{ textAlign: 'center', position: 'relative', zIndex: 2 }}>
-          {/* Badge */}
-          <div
-            className="animate-fade-in"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              backgroundColor: 'var(--color-white)',
-              border: '1px solid rgba(15, 118, 110, 0.2)',
-              borderRadius: 'var(--radius-full)',
-              padding: '6px 16px',
-              boxShadow: 'var(--shadow-sm)',
-              marginBottom: '1.75rem',
-            }}
-          >
-            <span style={{ color: 'var(--color-emerald)', fontSize: '0.85rem' }}>✦</span>
-            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-deep-forest)' }}>
-              Next-Gen Skill Assessment & Career Intelligence
-            </span>
-          </div>
-
-          {/* Editorial Headline */}
-          <h1
-            className="animate-fade-in"
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 'clamp(2.75rem, 6.5vw, 4.75rem)',
-              color: 'var(--color-deep-forest)',
-              maxWidth: '920px',
-              margin: '0 auto 1.25rem',
-              lineHeight: 1.08,
-              letterSpacing: '-0.025em',
-            }}
-          >
-            Turn your skills into your career.
-          </h1>
-
-          {/* Subtitle */}
-          <p
-            className="animate-fade-in"
-            style={{
-              fontSize: 'clamp(1.05rem, 2vw, 1.25rem)',
-              color: 'var(--color-charcoal-subtle)',
-              maxWidth: '680px',
-              margin: '0 auto 2.25rem',
-              lineHeight: 1.6,
-            }}
-          >
-            SkillSense AI analyzes your competencies, pinpoints your critical skill gaps, and architects a personalized winding roadmap tailored to placement success.
-          </p>
-
-          {/* CTA Buttons */}
-          <div
-            className="animate-fade-in"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '1rem',
-              flexWrap: 'wrap',
-              marginBottom: '3.5rem',
-            }}
-          >
-            <Link to="/assessment">
-              <Button variant="primary" size="lg" icon={ArrowUpRight} iconPosition="right">
-                Start Free Assessment
-              </Button>
-            </Link>
-            <Link to="/career-paths">
-              <Button variant="outline-emerald" size="lg">
-                Explore Career Paths
-              </Button>
-            </Link>
-          </div>
-
-          {/* =========================================================================
-              Priority 1: 3D SkillSense AI Core Visualization & Floating Nodes
-              ========================================================================= */}
-          <div
-            style={{
-              position: 'relative',
-              maxWidth: '920px',
-              margin: '0 auto',
-              padding: '1rem 0',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '480px',
-            }}
-          >
-            {/* Ambient Background Glow */}
-            <div
-              style={{
-                position: 'absolute',
-                width: '460px',
-                height: '460px',
-                borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(199, 243, 107, 0.45) 0%, rgba(15, 118, 110, 0.18) 50%, transparent 75%)',
-                filter: 'blur(50px)',
-                zIndex: 0,
-                pointerEvents: 'none',
-              }}
-            />
-
-            {/* 3D Three.js SkillSense AI Core */}
-            <div style={{ width: '100%', height: '480px', position: 'relative', zIndex: 1 }}>
-              <SkillSenseCore3D />
-            </div>
-
-            {/* Master Reference: Career Readiness 87% Floating Card */}
-            <div
-              className="animate-float"
-              style={{
-                position: 'absolute',
-                bottom: '12px',
-                right: '4%',
-                zIndex: 4,
-                backgroundColor: 'var(--color-white)',
-                border: '1.5px solid rgba(15, 118, 110, 0.3)',
-                borderRadius: 'var(--radius-xl)',
-                padding: '1.15rem 1.4rem',
-                boxShadow: '0 18px 36px -6px rgba(6, 46, 37, 0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                textAlign: 'left',
-              }}
-            >
-              <div
-                style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: 'var(--radius-full)',
-                  backgroundColor: 'var(--color-lime-soft)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--color-deep-forest)',
-                  fontSize: '1.15rem',
-                  fontWeight: 900,
-                }}
-              >
-                ✦
-              </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-muted-green)', letterSpacing: '0.04em' }}>
-                  Career Readiness
-                </div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.65rem', color: 'var(--color-deep-forest)', lineHeight: 1.1 }}>
-                  87%
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-emerald)', fontWeight: 600 }}>
-                  Ready for TCS & Infosys
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          STATISTICS SECTION (Clean metric cards)
-          ========================================================================= */}
-      <section style={{ padding: '2rem 0 4rem' }}>
-        <div className="container-custom">
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '1.25rem',
-            }}
-          >
-            <div
-              className="card-floating"
-              style={{
-                padding: '1.75rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--color-border-subtle)',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.75rem', color: 'var(--color-deep-forest)', lineHeight: 1 }}>
-                46
-              </div>
-              <div style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
-                Question Papers
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                TCS, Infosys, Accenture & more
-              </div>
-            </div>
-
-            <div
-              className="card-floating"
-              style={{
-                padding: '1.75rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--color-border-subtle)',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.75rem', color: 'var(--color-emerald)', lineHeight: 1 }}>
-                2,840
-              </div>
-              <div style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
-                Questions Extracted
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                Indexed with similarity vectors
-              </div>
-            </div>
-
-            <div
-              className="card-floating"
-              style={{
-                padding: '1.75rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--color-border-subtle)',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.75rem', color: 'var(--color-deep-forest)', lineHeight: 1 }}>
-                18
-              </div>
-              <div style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
-                Top Tech Companies
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                Campus & off-campus drives
-              </div>
-            </div>
-
-            <div
-              className="card-floating"
-              style={{
-                padding: '1.75rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--color-border-subtle)',
-                textAlign: 'center',
-              }}
-            >
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.75rem', color: 'var(--color-dark-emerald)', lineHeight: 1 }}>
-                367
-              </div>
-              <div style={{ fontSize: '0.925rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
-                Repeated Questions
-              </div>
-              <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                High-priority placement patterns
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          CAREER PATHS PREVIEW SECTION
-          ========================================================================= */}
-      <section style={{ padding: '4rem 0', backgroundColor: 'var(--color-ivory-surface)' }}>
-        <div className="container-custom">
-          <div style={{ textAlign: 'center', maxWidth: '640px', margin: '0 auto 3rem' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
-              <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-emerald)' }}>
-                Target Career Tracks
-              </span>
-            </div>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-deep-forest)', margin: '0 0 0.75rem 0' }}>
-              Built for high-growth tech roles
-            </h2>
-            <p style={{ fontSize: '1rem', color: 'var(--color-charcoal-subtle)' }}>
-              Choose your target career path and receive real-time skill matching against corporate hiring benchmarks.
-            </p>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '1.5rem',
-            }}
-          >
-            {mockCareerPaths.slice(0, 3).map((path) => (
-              <div
-                key={path.id}
-                className="card-floating"
-                style={{
-                  padding: '2rem',
-                  backgroundColor: 'var(--color-white)',
-                  borderRadius: 'var(--radius-xl)',
-                  border: '1px solid var(--color-border-subtle)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.45rem', color: 'var(--color-deep-forest)', margin: 0 }}>
-                      {path.title}
-                    </h3>
-                    <span
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 'var(--radius-full)',
-                        backgroundColor: 'var(--color-lime-soft)',
-                        color: 'var(--color-deep-forest)',
-                        fontSize: '0.8rem',
-                        fontWeight: 800,
-                      }}
-                    >
-                      {path.matchScore}% Match
-                    </span>
-                  </div>
-
-                  <p style={{ fontSize: '0.885rem', color: 'var(--color-charcoal-subtle)', lineHeight: 1.55, marginBottom: '1.25rem' }}>
-                    {path.description}
-                  </p>
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }}>
-                    {path.skills.map((s) => (
-                      <span
-                        key={s}
-                        style={{
-                          fontSize: '0.78rem',
-                          fontWeight: 600,
-                          backgroundColor: 'var(--color-ivory-surface)',
-                          border: '1px solid var(--color-border-medium)',
-                          padding: '3px 8px',
-                          borderRadius: 'var(--radius-sm)',
-                          color: 'var(--color-deep-forest)',
-                        }}
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--color-muted-green)' }}>
-                    Avg Package: <strong style={{ color: 'var(--color-deep-forest)' }}>{path.avgSalary}</strong>
-                  </span>
-                  <Link to="/career-paths">
-                    <Button variant="outline-emerald" size="sm" icon={ArrowRight} iconPosition="right">
-                      View Track
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
-            <Link to="/career-paths">
-              <Button variant="primary" size="md" icon={ArrowUpRight} iconPosition="right">
-                Explore All 6 Career Paths
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          QUESTION INTELLIGENCE SHOWCASE
-          ========================================================================= */}
-      <section style={{ padding: '4.5rem 0' }}>
-        <div className="container-custom">
-          <div
-            style={{
-              backgroundColor: 'var(--color-deep-forest)',
-              borderRadius: 'var(--radius-2xl)',
-              padding: '3.5rem 2.5rem',
-              color: 'var(--color-warm-ivory)',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-              gap: '2.5rem',
-              alignItems: 'center',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Background Glow */}
-            <div
-              style={{
-                position: 'absolute',
-                top: '-50%',
-                right: '-20%',
-                width: '400px',
-                height: '400px',
-                borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(199, 243, 107, 0.18) 0%, transparent 70%)',
-                pointerEvents: 'none',
-              }}
-            />
-
+      {/* HERO */}
+      <section style={{
+        position: 'relative', minHeight: '92vh',
+        display: 'flex', alignItems: 'center', overflow: 'hidden', paddingTop: '3rem',
+      }}>
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(183, 228, 74, 0.06) 0%, transparent 60%), radial-gradient(ellipse 40% 40% at 90% 70%, rgba(31, 107, 80, 0.05) 0%, transparent 60%)',
+          pointerEvents: 'none',
+        }} />
+        <div className="container-custom" style={{ width: '100%' }}>
+          <div className="hero-grid" style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            gap: '3rem', alignItems: 'center', minHeight: '75vh',
+          }}>
             <div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.75rem' }}>
-                <span style={{ color: 'var(--color-lime)' }}>✦</span>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-lime)' }}>
-                  Question Paper Intelligence
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }} style={{ marginBottom: '1.5rem' }}>
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '6px',
+                  background: 'var(--color-white)', border: '1px solid rgba(31, 107, 80, 0.2)',
+                  borderRadius: 'var(--radius-full)', padding: '6px 16px',
+                  fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-forest)',
+                  boxShadow: 'var(--shadow-sm)', letterSpacing: '0.02em', textTransform: 'uppercase',
+                }}>
+                  <span style={{ color: 'var(--color-emerald)' }}>\u2726</span>
+                  Next-Gen Skill Assessment Platform
                 </span>
-              </div>
-              <h2
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontSize: '2.4rem',
-                  color: 'var(--color-warm-ivory)',
-                  margin: '0 0 1rem 0',
-                  lineHeight: 1.15,
-                }}
-              >
-                Know which questions repeat before your placement exam
-              </h2>
-              <p style={{ fontSize: '0.975rem', color: 'var(--color-lime-soft)', opacity: 0.9, lineHeight: 1.6, marginBottom: '2rem' }}>
-                SkillSense AI analyzes previous placement papers to identify recurring questions, high-frequency topics, and company-specific patterns—helping students prepare for the questions that matter most.
-              </p>
+              </motion.div>
 
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                <Link to="/previous-questions">
-                  <Button variant="lime" size="md" icon={ArrowRight} iconPosition="right">
-                    Browse Previous Questions →
-                  </Button>
+              <div style={{ overflow: 'hidden', marginBottom: '1.5rem' }}>
+                {['Turn your skills', 'into your career.'].map((line, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 80 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.9, delay: 0.2 + i * 0.12, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <span style={{
+                      display: 'block',
+                      fontFamily: 'var(--font-serif-display)',
+                      fontSize: 'clamp(2.75rem, 5.5vw, 4.5rem)',
+                      fontWeight: 400, color: 'var(--color-forest)',
+                      letterSpacing: '-0.04em', lineHeight: 1.05,
+                    }}>
+                      {i === 1 ? (<>into your <em style={{ fontStyle: 'italic', color: 'var(--color-emerald)' }}>career.</em></>) : line}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.5 }}
+                style={{ fontSize: 'clamp(1rem, 1.5vw, 1.15rem)', color: 'var(--color-text-muted)', lineHeight: 1.7, maxWidth: '480px', marginBottom: '2.25rem' }}
+              >
+                Assess what you know. Discover what you're missing.
+                Build a personalized path toward your career.
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.65 }}
+                style={{ display: 'flex', gap: '0.875rem', flexWrap: 'wrap', alignItems: 'center' }}
+              >
+                <Link to="/signup" className="btn btn-primary btn-lg">
+                  Start Your Journey <span>\u2192</span>
                 </Link>
-                <Link to="/company-prep">
-                  <Button variant="outline" size="md" style={{ color: 'var(--color-warm-ivory)', borderColor: 'rgba(255,255,255,0.25)' }}>
-                    Explore Company Insights
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* 3D Question Intelligence Network & Highlighted Card */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div
-                style={{
-                  backgroundColor: 'rgba(6, 46, 37, 0.6)',
-                  borderRadius: 'var(--radius-xl)',
-                  border: '1px solid rgba(199, 243, 107, 0.25)',
-                  overflow: 'hidden',
-                }}
-              >
-                <QuestionNetwork3D />
-              </div>
-
-              {/* Highlighted Mock Intelligence Data */}
-              <div
-                style={{
-                  backgroundColor: 'var(--color-white)',
-                  borderRadius: 'var(--radius-xl)',
-                  padding: '1.5rem',
-                  color: 'var(--color-deep-forest)',
-                  boxShadow: 'var(--shadow-xl)',
-                  border: '1.5px solid rgba(199, 243, 107, 0.4)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--color-emerald)', textTransform: 'uppercase' }}>
-                    ✦ Sample Intelligence Match
-                  </span>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'var(--color-lime-soft)', padding: '2px 8px', borderRadius: 'var(--radius-full)' }}>
-                    94% Historical Similarity
-                  </span>
-                </div>
-
-                <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.3rem', margin: '0 0 0.5rem 0' }}>
-                  Two Sum (Array Traversal)
-                </h4>
-                <p style={{ fontSize: '0.85rem', color: 'var(--color-charcoal-subtle)', marginBottom: '0.75rem' }}>
-                  Appeared in TCS NQT 2025, Infosys Online Test 2024, and Accenture Coding Round 2026.
-                </p>
-
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'var(--color-ivory-surface)', border: '1px solid var(--color-border-subtle)' }}>
-                    Topic: Arrays
-                  </span>
-                  <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', backgroundColor: 'var(--color-ivory-surface)', border: '1px solid var(--color-border-subtle)' }}>
-                    Difficulty: Medium
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* =========================================================================
-          Section 23: FINAL CTA BANNER
-          ========================================================================= */}
-      <section style={{ padding: '3.5rem 0 5rem' }}>
-        <div className="container-custom">
-          <div
-            className="card-static"
-            style={{
-              backgroundColor: 'var(--color-deep-forest)',
-              borderRadius: 'var(--radius-2xl)',
-              padding: '3.5rem 2.5rem',
-              color: 'var(--color-white)',
-              textAlign: 'center',
-              boxShadow: 'var(--shadow-xl)',
-            }}
-          >
-            <h2
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: 'clamp(2rem, 4vw, 2.85rem)',
-                color: 'var(--color-white)',
-                margin: '0 0 0.75rem 0',
-              }}
-            >
-              Ready to build your career path?
-            </h2>
-            <p
-              style={{
-                fontSize: '1.05rem',
-                color: 'var(--color-lime-soft)',
-                maxWidth: '560px',
-                margin: '0 auto 2rem',
-                lineHeight: 1.55,
-              }}
-            >
-              Explore SkillSense AI freely, and create an account when you're ready to personalize your journey.
-            </p>
-
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <Link to="/signup">
-                <Button variant="lime" size="lg" icon={ArrowRight} iconPosition="right">
-                  Create Free Account →
-                </Button>
-              </Link>
-              <Link to="/career-paths">
-                <Button variant="outline" size="lg" style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'var(--color-white)' }}>
+                <Link to="/career-paths" className="btn btn-outline btn-lg">
                   Explore Career Paths
-                </Button>
-              </Link>
+                </Link>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                transition={{ duration: 0.7, delay: 0.9 }}
+                style={{ marginTop: '2rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}
+              >
+                {[{ num: '9+', label: 'Career Paths' }, { num: '90+', label: 'Practice Problems' }, { num: '6+', label: 'Company Banks' }].map((stat, idx) => (
+                  <div key={stat.label} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.03em' }}>{stat.num}</span>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>{stat.label}</span>
+                    {idx < 2 && <span style={{ color: 'var(--color-border-medium)', marginLeft: '0.5rem' }}>&#183;</span>}
+                  </div>
+                ))}
+              </motion.div>
             </div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                height: '500px', borderRadius: 'var(--radius-2xl)', overflow: 'hidden',
+                background: 'radial-gradient(ellipse at center, rgba(31, 107, 80, 0.06) 0%, transparent 70%)',
+                border: '1px solid var(--color-border-subtle)',
+              }}
+            >
+              <React.Suspense fallback={<div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>Loading...</div>}>
+                <SkillSenseCore3D />
+              </React.Suspense>
+            </motion.div>
           </div>
         </div>
       </section>
 
-      {/* =========================================================================
-          FOOTER
-          ========================================================================= */}
-      <footer style={{ borderTop: '1px solid var(--color-border-subtle)', padding: '3rem 0 2rem', backgroundColor: 'var(--color-white)' }}>
+      {/* FEATURES */}
+      <section style={{ paddingBlock: '6rem', background: 'var(--color-white)', borderTop: '1px solid var(--color-border-subtle)' }}>
         <div className="container-custom">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '6px',
-                  backgroundColor: 'var(--color-deep-forest)',
-                  color: 'var(--color-lime)',
-                  fontSize: '0.9rem',
-                }}
-              >
-                ✦
-              </span>
-              <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--color-deep-forest)' }}>
-                SkillSense AI
-              </span>
-            </div>
-
-            <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.875rem', color: 'var(--color-charcoal-subtle)' }}>
-              <Link to="/career-paths">Career Paths</Link>
-              <Link to="/roadmap">Roadmap</Link>
-              <Link to="/previous-questions">Previous Questions</Link>
-              <Link to="/company-prep">Company Prep</Link>
-              <Link to="/dashboard">Dashboard</Link>
-            </div>
+          <RevealSection style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+            <span style={{ display: 'inline-block', fontFamily: 'var(--font-sans)', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-emerald)', marginBottom: '1rem' }}>Everything you need</span>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3.25rem)', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.025em', maxWidth: '600px', margin: '0 auto' }}>
+              One platform for your entire career journey.
+            </h2>
+          </RevealSection>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
+            {features.map((f, i) => <FeatureCard key={f.title} {...f} delay={i * 0.08} />)}
           </div>
+        </div>
+      </section>
 
-          <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', fontSize: '0.78rem', color: 'var(--color-muted-green)' }}>
-            <div>© 2026 SkillSense AI Platform. All rights reserved.</div>
-            <div>Designed for College Placements & Technical Career Development.</div>
+      {/* ASSESSMENT PREVIEW */}
+      <section style={{ paddingBlock: '7rem', background: 'var(--color-ivory)' }}>
+        <div className="container-custom">
+          <div className="two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', alignItems: 'center' }}>
+            <RevealSection>
+              <span style={{ display: 'inline-block', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-emerald)', marginBottom: '1rem' }}>Skill Assessment</span>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3.25rem)', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.025em', lineHeight: 1.1, marginBottom: '1.25rem' }}>
+                Know exactly<br />where you stand.
+              </h2>
+              <p style={{ maxWidth: '440px', marginBottom: '1.75rem', lineHeight: 1.7 }}>
+                Take structured assessments across Python, Java, DSA, SQL, React, and more.
+                Choose your difficulty and receive a detailed breakdown of your performance.
+              </p>
+              <Link to="/assessment" className="btn btn-primary">Start Free Assessment</Link>
+            </RevealSection>
+            <RevealSection delay={0.2}>
+              <div style={{ background: 'var(--color-white)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-2xl)', padding: '2rem', boxShadow: 'var(--shadow-lg)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-forest)' }}>Python Medium</h3>
+                  <span className="badge badge-medium">Medium</span>
+                </div>
+                <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-forest)', marginBottom: '0.75rem' }}>Q4. What is the output of: x = [1,2,3,4,5]; print(x[1:3])</p>
+                <div style={{ background: 'var(--color-forest)', borderRadius: 'var(--radius-md)', padding: '1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8rem', color: 'var(--color-lime-soft)', lineHeight: 1.7, marginBottom: '1rem' }}>
+                  x = [1, 2, 3, 4, 5]<br />print(x[1:3])
+                </div>
+                {['[1, 2]', '[2, 3]', '[2, 3, 4]', '[1, 2, 3]'].map((opt, i) => (
+                  <div key={opt} style={{
+                    padding: '0.625rem 1rem',
+                    border: `1px solid ${i === 1 ? 'var(--color-emerald)' : 'var(--color-border-subtle)'}`,
+                    borderRadius: 'var(--radius-md)', marginBottom: '0.5rem',
+                    fontSize: '0.875rem', fontFamily: 'var(--font-mono)',
+                    color: i === 1 ? 'var(--color-emerald)' : 'var(--color-charcoal)',
+                    background: i === 1 ? 'var(--color-emerald-alpha)' : 'transparent',
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                  }}>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-subtle)', minWidth: '16px' }}>{String.fromCharCode(65 + i)}.</span>
+                    {opt}
+                    {i === 1 && <span style={{ marginLeft: 'auto' }}>\u2713</span>}
+                  </div>
+                ))}
+              </div>
+            </RevealSection>
+          </div>
+        </div>
+      </section>
+
+      {/* CAREER PATHS */}
+      <section style={{ paddingBlock: '7rem', background: 'var(--color-forest)' }}>
+        <div className="container-custom">
+          <RevealSection style={{ textAlign: 'center', marginBottom: '3.5rem' }}>
+            <span style={{ display: 'inline-block', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-lime)', marginBottom: '1rem' }}>Career Paths</span>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3.25rem)', fontWeight: 400, color: 'var(--color-ivory)', letterSpacing: '-0.025em' }}>Choose your direction.</h2>
+            <p style={{ color: 'rgba(244, 240, 231, 0.65)', marginTop: '0.75rem', maxWidth: '480px', margin: '0.75rem auto 0' }}>Nine curated career paths, each with tailored skill requirements and personalized roadmaps.</p>
+          </RevealSection>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '2.5rem' }}>
+            {careerPaths.map((cp, i) => <CareerCard key={cp.name} {...cp} delay={i * 0.07} />)}
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <Link to="/career-paths" className="btn btn-lime btn-lg">Explore All 9 Paths &#8594;</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ROADMAP */}
+      <section style={{ paddingBlock: '7rem', background: 'var(--color-ivory)' }}>
+        <div className="container-custom">
+          <div className="two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4rem', alignItems: 'start' }}>
+            <RevealSection>
+              <span style={{ display: 'inline-block', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-emerald)', marginBottom: '1rem' }}>Personalized Roadmap</span>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3.25rem)', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.025em', lineHeight: 1.1, marginBottom: '1.25rem' }}>
+                Build your route,<br />step by step.
+              </h2>
+              <p style={{ maxWidth: '440px', lineHeight: 1.7, marginBottom: '1.75rem' }}>
+                Your roadmap is dynamically generated from your career path, assessment results, and skill gaps. Not a generic template.
+              </p>
+              <Link to="/signup" className="btn btn-primary">Get Your Roadmap</Link>
+            </RevealSection>
+            <RevealSection delay={0.2}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                {roadmapSteps.map((step, i) => <RoadmapStep key={step.number} {...step} delay={i * 0.06} />)}
+              </div>
+            </RevealSection>
+          </div>
+        </div>
+      </section>
+
+      {/* QUESTION INTELLIGENCE */}
+      <section style={{ paddingBlock: '7rem', background: 'linear-gradient(135deg, var(--color-forest) 0%, var(--color-forest-mid) 100%)' }}>
+        <div className="container-custom">
+          <RevealSection style={{ textAlign: 'center', marginBottom: '3rem' }}>
+            <span style={{ display: 'inline-block', fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-lime)', marginBottom: '1rem' }}>Question Intelligence</span>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3.25rem)', fontWeight: 400, color: 'var(--color-ivory)', letterSpacing: '-0.025em', marginBottom: '1rem' }}>
+              Practice what companies actually ask.
+            </h2>
+            <p style={{ color: 'rgba(244, 240, 231, 0.65)', maxWidth: '520px', margin: '0 auto' }}>
+              Every practice problem is matched against real placement questions using TF-IDF cosine similarity.
+            </p>
+          </RevealSection>
+          <RevealSection delay={0.2} style={{ display: 'flex', justifyContent: 'center', marginBottom: '2.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'center', maxWidth: '700px' }}>
+              {['TCS', 'Infosys', 'Accenture', 'Cognizant', 'Wipro', 'Amazon', 'Microsoft'].map((company, i) => (
+                <motion.div key={company}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4, delay: i * 0.08 }}
+                  style={{
+                    padding: '0.625rem 1.25rem', background: 'rgba(244, 240, 231, 0.08)',
+                    border: '1px solid rgba(183, 228, 74, 0.2)', borderRadius: 'var(--radius-full)',
+                    fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-ivory)', letterSpacing: '0.02em',
+                  }}
+                >
+                  {company}
+                </motion.div>
+              ))}
+            </div>
+          </RevealSection>
+          <div style={{ textAlign: 'center' }}>
+            <Link to="/previous-questions" className="btn btn-lime btn-lg">Browse Previous Questions &#8594;</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{ paddingBlock: '8rem', background: 'var(--color-ivory)', textAlign: 'center' }}>
+        <div className="container-custom">
+          <RevealSection>
+            <div style={{ background: 'var(--color-white)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-3xl)', padding: '4rem 3rem', boxShadow: 'var(--shadow-xl)', maxWidth: '700px', margin: '0 auto' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', background: 'var(--color-lime-soft)', borderRadius: '50%', fontSize: '1.5rem', marginBottom: '1.5rem' }}>\u2726</span>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.025em', marginBottom: '1rem' }}>
+                You're career ready.<br />Start proving it.
+              </h2>
+              <p style={{ color: 'var(--color-text-muted)', maxWidth: '420px', margin: '0 auto 2.25rem' }}>
+                Join SkillSense AI and get a personalized skill assessment, roadmap, and placement intelligence — completely free.
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link to="/signup" className="btn btn-primary btn-lg">Create Free Account</Link>
+                <Link to="/career-paths" className="btn btn-outline btn-lg">Explore Paths</Link>
+              </div>
+            </div>
+          </RevealSection>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer style={{ background: 'var(--color-forest)', paddingBlock: '3rem', borderTop: '1px solid rgba(183, 228, 74, 0.1)' }}>
+        <div className="container-custom">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
+            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '30px', height: '30px', borderRadius: '7px', background: 'var(--color-lime)', color: 'var(--color-forest)', fontWeight: 700, fontSize: '0.9rem' }}>\u2726</span>
+              <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.2rem', color: 'var(--color-ivory)' }}>SkillSense AI</span>
+            </Link>
+            <nav style={{ display: 'flex', gap: '1.75rem', flexWrap: 'wrap' }}>
+              {[{ to: '/career-paths', label: 'Career Paths' }, { to: '/assessment', label: 'Assessments' }, { to: '/previous-questions', label: 'Questions' }, { to: '/placement-tracker', label: 'Placements' }, { to: '/about', label: 'About' }, { to: '/admin/login', label: 'Admin' }].map((l) => (
+                <Link key={l.to} to={l.to} style={{ fontSize: '0.85rem', color: 'rgba(244, 240, 231, 0.6)', fontWeight: 500 }}>{l.label}</Link>
+              ))}
+            </nav>
+            <p style={{ fontSize: '0.8rem', color: 'rgba(244, 240, 231, 0.4)' }}>&copy; 2026 SkillSense AI</p>
           </div>
         </div>
       </footer>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .hero-grid, .two-col-grid { grid-template-columns: 1fr !important; }
+          .hero-grid > *:last-child { height: 320px !important; }
+        }
+        .radius-3xl { border-radius: var(--radius-3xl) !important; }
+      `}</style>
     </div>
   );
 };
+
+export default LandingPage;

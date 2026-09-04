@@ -87,9 +87,25 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
+    const handleExpired = () => {
+      authService.logout();
+      safeStorage.clearSkillSenseKeys();
+      if (isMounted) {
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('skillsense:auth:expired', handleExpired);
+    }
+
     checkSession();
     return () => {
       isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('skillsense:auth:expired', handleExpired);
+      }
     };
   }, []);
 

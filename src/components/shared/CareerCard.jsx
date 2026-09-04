@@ -1,90 +1,137 @@
-import React from 'react';
-import { ArrowUpRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import { Button } from '../common/Button';
+import { ArrowRight, Check, Loader2 } from 'lucide-react';
+import { CareerPathIcon } from './CareerPathIcon';
 
 export const CareerCard = ({
-  career,
   path,
-  onSelect,
   isSelected = false,
-  className = '',
+  onChooseTrack,
+  userSkills = [],
+  index = 0,
 }) => {
-  const item = career || path || {};
-  const title = item.title || "Career Track";
-  const description = item.description || "";
-  const skills = item.skills || item.requiredSkills || [];
-  const matchScore = item.matchScore || item.matchPercentage || 85;
-  const avgSalary = item.avgSalary || item.averageSalary;
-  const demandLevel = item.demandLevel || "High Demand";
-  const roleCount = item.roleCount || `${item.activeOpenings || 100}+ Openings`;
+  const [loading, setLoading] = useState(false);
+  const [selectedState, setSelectedState] = useState(isSelected);
+
+  const title = path.title || path.name || "Career Track";
+  const slug = path.slug || path.id || "backend-developer";
+  const description = path.description || "";
+  const skills = path.required_skills || path.skills || path.requiredSkills || [];
+  const demand = path.demand_level || path.demandLevel || "High Demand";
+  const openings = path.active_openings || path.openings || 150;
+  const salary = path.average_salary || path.avgSalary || path.averageSalary || "₹8 LPA – ₹15 LPA";
+
+  // Calculate dynamic match score if user skills present
+  let matchScore = path.match_percentage || path.matchScore || path.match_score;
+  if (userSkills && userSkills.length > 0 && skills.length > 0) {
+    const matchedCount = skills.filter((s) =>
+      userSkills.some((us) => us.toLowerCase() === s.toLowerCase() || s.toLowerCase().includes(us.toLowerCase()))
+    ).length;
+    const computed = Math.round((matchedCount / skills.length) * 100);
+    matchScore = Math.max(computed, 65); // Realistic baseline
+  } else if (!matchScore) {
+    matchScore = 83;
+  }
+
+  const handleChoose = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (loading || selectedState) return;
+    setLoading(true);
+    try {
+      if (onChooseTrack) {
+        await onChooseTrack(path);
+      }
+      setSelectedState(true);
+    } catch (err) {
+      console.warn("Track selection error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div
-      className={`card-floating ${className}`}
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.5,
+        delay: index * 0.08,
+        ease: [0.16, 1, 0.3, 1],
+      }}
+      whileHover={{ y: -4 }}
       style={{
+        background: 'var(--color-white)',
+        border: selectedState ? '2px solid var(--color-emerald)' : '1px solid var(--color-border-subtle)',
+        borderRadius: 'var(--radius-2xl)',
         padding: '1.75rem',
-        borderRadius: 'var(--radius-xl)',
-        backgroundColor: 'var(--color-white)',
-        border: isSelected ? '2px solid var(--color-emerald)' : '1px solid var(--color-border-subtle)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        boxShadow: selectedState
+          ? '0 16px 36px -6px rgba(31, 107, 80, 0.18)'
+          : 'var(--shadow-md)',
+        transition: 'border-color 200ms, box-shadow 200ms',
+        height: '100%',
         position: 'relative',
-        boxShadow: isSelected ? '0 12px 28px -4px rgba(15, 118, 110, 0.18)' : 'var(--shadow-md)',
+        overflow: 'hidden',
       }}
     >
       <div>
-        {/* Top Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <h3
-                style={{
-                  fontSize: '1.35rem',
-                  fontFamily: 'var(--font-serif)',
-                  color: 'var(--color-deep-forest)',
-                  margin: 0,
-                }}
-              >
-                {title}
-              </h3>
-              {isSelected && (
-                <span
+        {/* Top Header Row: Icon + Title/Demand + Match Badge */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.2 }}>
+              <CareerPathIcon type={title} size={52} />
+            </motion.div>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h3
                   style={{
-                    backgroundColor: 'var(--color-emerald)',
-                    color: 'var(--color-white)',
-                    borderRadius: 'var(--radius-full)',
-                    padding: '2px 6px',
-                    fontSize: '0.65rem',
-                    fontWeight: 700,
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: '1.45rem',
+                    fontWeight: 400,
+                    color: 'var(--color-forest)',
+                    margin: 0,
+                    lineHeight: 1.15,
+                    letterSpacing: '-0.02em',
                   }}
                 >
-                  Active Path
-                </span>
-              )}
+                  {title}
+                </h3>
+                {selectedState && (
+                  <span className="badge badge-emerald" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
+                    Active Track
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500, marginTop: '3px' }}>
+                {demand} · {openings}+ Openings
+              </div>
             </div>
-            {demandLevel && (
-              <span style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', fontWeight: 500 }}>
-                {demandLevel} · {roleCount}
-              </span>
-            )}
           </div>
 
+          {/* Match Badge */}
           <div
             style={{
-              padding: '6px 12px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-lime-soft)',
-              color: 'var(--color-deep-forest)',
-              fontWeight: 800,
-              fontSize: '0.85rem',
-              display: 'flex',
+              display: 'inline-flex',
               alignItems: 'center',
               gap: '4px',
+              padding: '0.35rem 0.85rem',
+              borderRadius: 'var(--radius-full)',
+              background: selectedState ? 'var(--color-forest)' : 'var(--color-lime-soft)',
+              color: selectedState ? 'var(--color-lime)' : 'var(--color-forest)',
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 800,
+              fontSize: '0.85rem',
+              letterSpacing: '0.01em',
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 8px rgba(183, 228, 74, 0.25)',
+              transition: 'background 250ms, color 250ms',
             }}
           >
-            <span style={{ fontSize: '0.75rem' }}>✦</span>
+            <span>✦</span>
             {matchScore}% Match
           </div>
         </div>
@@ -92,31 +139,40 @@ export const CareerCard = ({
         {/* Description */}
         <p
           style={{
-            fontSize: '0.885rem',
-            color: 'var(--color-charcoal-subtle)',
-            lineHeight: 1.55,
+            fontSize: '0.9rem',
+            color: 'var(--color-text-muted)',
+            lineHeight: 1.65,
             marginBottom: '1.25rem',
           }}
         >
           {description}
         </p>
 
-        {/* Skills Pills */}
+        {/* CORE SKILLS */}
         <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-muted-green)', marginBottom: '6px' }}>
-            Core Skills
+          <div
+            style={{
+              fontSize: '0.725rem',
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--color-forest)',
+              marginBottom: '0.5rem',
+            }}
+          >
+            CORE SKILLS
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
             {skills.map((skill) => (
               <span
                 key={skill}
                 style={{
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  backgroundColor: 'var(--color-ivory-surface)',
+                  backgroundColor: 'var(--color-ivory-soft)',
                   border: '1px solid var(--color-border-medium)',
-                  color: 'var(--color-deep-forest)',
-                  padding: '3px 9px',
+                  color: 'var(--color-forest)',
+                  padding: '4px 10px',
                   borderRadius: 'var(--radius-sm)',
                 }}
               >
@@ -131,34 +187,67 @@ export const CareerCard = ({
       <div
         style={{
           borderTop: '1px solid var(--color-border-subtle)',
-          paddingTop: '1rem',
+          paddingTop: '1.125rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '1rem',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
         }}
       >
-        <div>
-          {avgSalary && (
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)' }}>
-              Avg CTC: <strong style={{ color: 'var(--color-deep-forest)' }}>{avgSalary}</strong>
-            </div>
-          )}
+        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+          Avg CTC:{' '}
+          <strong style={{ color: 'var(--color-forest)', fontWeight: 700 }}>
+            {salary}
+          </strong>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <Link to="/roadmap">
-            <Button variant="outline-emerald" size="sm" icon={ArrowUpRight} iconPosition="right">
-              Roadmap
-            </Button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Roadmap Button -> Links to specific career roadmap */}
+          <Link to={`/roadmap?career=${encodeURIComponent(slug)}`}>
+            <motion.button
+              whileHover={{ x: 2 }}
+              className="btn btn-outline btn-sm"
+              style={{
+                fontSize: '0.8125rem',
+                padding: '0.45rem 1rem',
+                borderColor: 'var(--color-border-strong)',
+              }}
+            >
+              Roadmap <ArrowRight size={14} style={{ marginLeft: '4px' }} />
+            </motion.button>
           </Link>
-          {onSelect && (
-            <Button variant={isSelected ? "primary" : "lime"} size="sm" onClick={() => onSelect(item)}>
-              {isSelected ? "Selected" : "Choose Track"}
-            </Button>
-          )}
+
+          {/* Choose Track Button */}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleChoose}
+            disabled={loading}
+            className={`btn ${selectedState ? 'btn-primary' : 'btn-lime'} btn-sm`}
+            style={{
+              fontSize: '0.8125rem',
+              padding: '0.45rem 1.1rem',
+              fontWeight: 700,
+            }}
+          >
+            {loading ? (
+              <>
+                <Loader2 size={14} className="animate-spin-slow" style={{ marginRight: '4px' }} />
+                Choosing...
+              </>
+            ) : selectedState ? (
+              <>
+                <Check size={14} style={{ marginRight: '4px' }} />
+                Track Selected ✓
+              </>
+            ) : (
+              'Choose Track'
+            )}
+          </motion.button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 };
+
+export default CareerCard;

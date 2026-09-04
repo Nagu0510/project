@@ -194,8 +194,9 @@ export function App() {
                 }
               />
 
-              {/* Legacy Route Redirect */}
+              {/* Legacy Route Redirects */}
               <Route path="/question-papers" element={<Navigate to="/admin/question-papers" replace />} />
+              <Route path="/admin/questions" element={<AdminRoute><AdminQuestionPapersPage /></AdminRoute>} />
 
               {/* 404 Catch-All */}
               <Route path="*" element={<NotFoundPage />} />

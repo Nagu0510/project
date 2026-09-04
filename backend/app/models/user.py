@@ -8,9 +8,9 @@ class UserBase(BaseModel):
     role: str = "student"  # 'student' | 'admin'
 
 class UserCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, max_length=128)
     college: Optional[str] = "Engineering College"
     department: Optional[str] = "Computer Science & Engineering"
     year: Optional[str] = "Final Year (2026)"
@@ -21,7 +21,7 @@ class UserCreate(BaseModel):
 
 class AdminLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=4)
 
 class UserLogin(BaseModel):
     email: EmailStr

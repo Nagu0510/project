@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "backend": "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
+    "backend:win": ".\\backend\\python_bin\\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
     "build": "vite build",
     "preview": "vite preview"
   },

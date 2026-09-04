@@ -399,13 +399,16 @@ export function normalizeResumeReport(data, careerFallback = 'Backend Developer'
 export function normalizeUser(user) {
   if (!user || typeof user !== 'object') return null;
 
+  const role = safeString(user.role, 'student');
+  const isAdmin = role === 'admin';
+
   return {
-    id: safeString(user.id, 'usr-guest'),
-    name: safeString(user.name, 'Student Candidate'),
-    email: safeString(user.email, 'student@skillsense.ai'),
-    role: safeString(user.role, 'student'),
+    id: safeString(user.id, isAdmin ? 'usr-admin-01' : 'usr-guest'),
+    name: safeString(user.name, isAdmin ? 'SkillSense Admin' : 'Student Candidate'),
+    email: safeString(user.email, isAdmin ? 'admin@skillsense.ai' : 'student@skillsense.ai'),
+    role: role,
     college: safeString(user.college, 'Engineering College'),
-    department: safeString(user.department, 'Computer Science & Engineering'),
+    department: safeString(user.department, isAdmin ? 'Platform Engineering & Placement Intelligence' : 'Computer Science & Engineering'),
     year: safeString(user.year || user.current_year || user.currentYear, 'Final Year (2026)'),
     careerInterest: safeString(user.career_interest || user.careerInterest || user.career_goal || 'Backend Developer'),
     currentPath: safeString(user.current_path || user.currentPath || user.career_interest || 'Backend Developer'),
@@ -416,6 +419,14 @@ export function normalizeUser(user) {
     assessmentsCompleted: safeNumber(user.assessments_completed || user.assessmentsCompleted, 1),
     strongSkills: safeArray(user.strong_skills || user.strongSkills || ['Python', 'SQL', 'REST APIs']),
     gapSkills: safeArray(user.gap_skills || user.gapSkills || ['System Design', 'Docker', 'Kubernetes']),
-    avatar: safeString(user.avatar, 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'),
+    avatar: safeString(
+      user.avatar,
+      isAdmin
+        ? 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
+        : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+    ),
+    managedPapersCount: safeNumber(user.managed_papers_count || user.managedPapersCount, 46),
+    extractedQuestionsCount: safeNumber(user.extracted_questions_count || user.extractedQuestionsCount, 2840),
+    verifiedCompanies: safeNumber(user.verified_companies || user.verifiedCompanies, 18),
   };
 }

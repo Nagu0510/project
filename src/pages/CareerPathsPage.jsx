@@ -1,27 +1,31 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Filter, Sparkles, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
 import { Sidebar } from '../components/common/Sidebar';
 import { Navbar } from '../components/common/Navbar';
-import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
 import { CareerCard } from '../components/shared/CareerCard';
-import { mockCareerPaths } from '../data/mockCareerPaths';
 import { careerService } from '../services/careerService';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { normalizeCareerPathList } from '../utils/normalizers';
-import { Sparkles, Compass, Target, ArrowRight, CheckCircle2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+
+const DOMAIN_OPTIONS = [
+  'All Domains',
+  'Software Engineering',
+  'Web Development',
+  'Data & Analytics',
+  'AI & Machine Learning',
+  'Cloud & DevOps',
+];
 
 export const CareerPathsPage = () => {
   const { user, isAuthenticated, updateUserProfile, requireAuth } = useAuth();
   const { addToast } = useToast();
-  const navigate = useNavigate();
 
-  const [careerPaths, setCareerPaths] = useState(() => normalizeCareerPathList(mockCareerPaths));
-  const [loading, setLoading] = useState(false);
-  const [selectedPathId, setSelectedPathId] = useState(
-    user?.currentPath ? (mockCareerPaths.find((p) => p.title === user.currentPath)?.id || 'backend') : 'backend'
-  );
+  const [careerPaths, setCareerPaths] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState('All Domains');
+  const [selectedTrackId, setSelectedTrackId] = useState(user?.currentPath || 'backend');
 
   useEffect(() => {
     let isMounted = true;
@@ -29,17 +33,17 @@ export const CareerPathsPage = () => {
       setLoading(true);
       try {
         const paths = await careerService.getCareerPaths();
-        if (isMounted) {
-          if (Array.isArray(paths) && paths.length > 0) {
-            setCareerPaths(paths);
-            if (user?.currentPath) {
-              const matched = paths.find((p) => p.title === user.currentPath);
-              if (matched) setSelectedPathId(matched.id);
-            }
+        if (isMounted && Array.isArray(paths) && paths.length > 0) {
+          setCareerPaths(paths);
+          if (user?.currentPath) {
+            const matched = paths.find(
+              (p) => p.title === user.currentPath || p.id === user.currentPath || p.slug === user.currentPath
+            );
+            if (matched) setSelectedTrackId(matched.id);
           }
         }
       } catch (err) {
-        console.warn("Using default career paths", err);
+        console.warn('[CareerPaths] Service fallback:', err);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -50,208 +54,264 @@ export const CareerPathsPage = () => {
     };
   }, [user?.currentPath]);
 
-  const safePaths = Array.isArray(careerPaths) ? careerPaths : [];
-  const activePath = safePaths.find((p) => p.id === selectedPathId) || safePaths[0] || normalizeCareerPathList(mockCareerPaths)[0];
+  // Filter paths by search query and domain
+  const filteredPaths = useMemo(() => {
+    return careerPaths.filter((path) => {
+      const q = searchQuery.toLowerCase().trim();
+      const title = (path.title || path.name || '').toLowerCase();
+      const desc = (path.description || '').toLowerCase();
+      const skills = (path.required_skills || path.skills || []).join(' ').toLowerCase();
 
-  const handleSelectPath = (pathId) => {
-    setSelectedPathId(pathId);
-  };
+      const matchesSearch = !q || title.includes(q) || desc.includes(q) || skills.includes(q);
 
-  const handleConfirmPath = async (path) => {
-    if (!path) return;
-    requireAuth(async () => {
-      try {
-        await careerService.selectCareerPath(path.id, path.title);
-      } catch (e) {
-        console.warn("Backend career save fallback:", e);
+      let matchesDomain = true;
+      if (selectedDomain === 'Software Engineering') {
+        matchesDomain = title.includes('java') || title.includes('python') || title.includes('backend');
+      } else if (selectedDomain === 'Web Development') {
+        matchesDomain = title.includes('front') || title.includes('full');
+      } else if (selectedDomain === 'Data & Analytics') {
+        matchesDomain = title.includes('data');
+      } else if (selectedDomain === 'AI & Machine Learning') {
+        matchesDomain = title.includes('ai') || title.includes('machine');
+      } else if (selectedDomain === 'Cloud & DevOps') {
+        matchesDomain = title.includes('cloud') || title.includes('devops');
       }
-      updateUserProfile({
-        currentPath: path.title,
-        careerInterest: path.title,
-      });
-      addToast(`Target career path set to ${path.title}!`, 'success');
-      navigate('/roadmap');
-    }, '/career-paths');
+
+      return matchesSearch && matchesDomain;
+    });
+  }, [careerPaths, searchQuery, selectedDomain]);
+
+  const handleChooseTrack = async (path) => {
+    if (!path) return;
+    const targetTitle = path.title || path.name || 'Backend Developer';
+    const targetId = path.id || path.slug || 'backend';
+
+    return new Promise((resolve, reject) => {
+      requireAuth(async () => {
+        try {
+          await careerService.selectCareerPath(targetId, targetTitle);
+          updateUserProfile({
+            currentPath: targetTitle,
+            careerInterest: targetTitle,
+            careerGoal: targetTitle,
+          });
+          setSelectedTrackId(targetId);
+          addToast(`Target track updated to ${targetTitle}! Roadmap calibrated.`, 'success');
+          resolve(true);
+        } catch (err) {
+          console.warn('Track selection fallback:', err);
+          updateUserProfile({
+            currentPath: targetTitle,
+            careerInterest: targetTitle,
+          });
+          setSelectedTrackId(targetId);
+          addToast(`Selected ${targetTitle}`, 'info');
+          resolve(true);
+        }
+      }, '/career-paths');
+    });
   };
 
-  const activeSkills = Array.isArray(activePath?.requiredSkills)
-    ? activePath.requiredSkills
-    : Array.isArray(activePath?.skills)
-    ? activePath.skills
-    : ["Python", "FastAPI", "SQL", "REST APIs"];
-
-  const activeCompanies = Array.isArray(activePath?.topCompanies)
-    ? activePath.topCompanies
-    : ["TCS Prime", "Amazon", "Infosys", "Accenture", "Capgemini"];
+  const userSkills = user?.strongSkills || user?.skills || ['Python', 'SQL', 'Git'];
 
   return (
-    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-warm-ivory)' }}>
+    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
       {isAuthenticated ? <Sidebar /> : <Navbar />}
 
-      <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '3rem 1.5rem 5rem' }}>
-        <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0 }}>
-          {/* Guest Preview Banner */}
-          {!isAuthenticated && (
-            <div
-              style={{
-                backgroundColor: 'var(--color-lime-soft)',
-                border: '1px solid rgba(6, 46, 37, 0.1)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '0.85rem 1.25rem',
-                marginBottom: '2rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '0.75rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.885rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
-                <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-                <span><strong>Public Preview Mode:</strong> Explore career pathways and skill requirements freely. Sign in to save your target path.</span>
-              </div>
-              <Button variant="primary" size="sm" onClick={() => requireAuth(null, '/career-paths')}>
-                Sign In to Save Path
-              </Button>
-            </div>
-          )}
-
-          {/* Header */}
-          <div style={{ marginBottom: '2.5rem' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.4rem' }}>
-              <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-emerald)' }}>
-                Target Specialization Engine
+      <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '3rem 1.5rem 6rem' }}>
+        <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0, maxWidth: '1280px', margin: '0 auto' }}>
+          
+          {/* Header Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            style={{ marginBottom: '2.5rem' }}
+          >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
+              <span style={{ color: 'var(--color-emerald)', fontSize: '0.9rem' }}>✦</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-emerald)' }}>
+                Target Career Path Selection
               </span>
             </div>
             <h1
               style={{
                 fontFamily: 'var(--font-serif)',
-                fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
-                color: 'var(--color-deep-forest)',
-                margin: 0,
+                fontSize: 'clamp(2.25rem, 4vw, 3.25rem)',
+                fontWeight: 400,
+                color: 'var(--color-forest)',
+                margin: '0 0 0.5rem 0',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
               }}
             >
-              Explore & Select Your Career Path
+              Explore Career Paths
             </h1>
-            <p style={{ fontSize: '1rem', color: 'var(--color-charcoal-subtle)', marginTop: '4px', maxWidth: '680px' }}>
-              Choose a target career track. SkillSense AI will calibrate your winding roadmaps and diagnostic placement tests accordingly.
+            <p style={{ fontSize: '1.05rem', color: 'var(--color-text-muted)', margin: 0, maxWidth: '640px', lineHeight: 1.6 }}>
+              Discover the perfect path for your skills and goals.
             </p>
-          </div>
+          </motion.div>
 
-          {/* CAREER TRACKS GRID */}
-          <div
+          {/* Search & Domain Filter Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '1.5rem',
-              marginBottom: '3rem',
+              background: 'var(--color-white)',
+              border: '1px solid var(--color-border-subtle)',
+              borderRadius: 'var(--radius-2xl)',
+              padding: '1.25rem 1.5rem',
+              boxShadow: 'var(--shadow-sm)',
+              marginBottom: '2.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '1rem',
+              flexWrap: 'wrap',
             }}
           >
-            {safePaths.map((path) => (
-              <CareerCard
-                key={path.id}
-                career={path}
-                path={path}
-                isSelected={selectedPathId === path.id}
-                onSelect={() => handleSelectPath(path.id)}
+            {/* Search Bar Input */}
+            <div style={{ flex: 1, minWidth: '260px', position: 'relative' }}>
+              <Search
+                size={18}
+                color="var(--color-text-subtle)"
+                style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
               />
-            ))}
-          </div>
-
-          {/* ACTIVE TRACK SPOTLIGHT & CONFIRMATION */}
-          {activePath && (
-            <div
-              className="card-static"
-              style={{
-                padding: '2.25rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-2xl)',
-                border: '1.5px solid rgba(15, 118, 110, 0.25)',
-                boxShadow: 'var(--shadow-lg)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.5rem' }}>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '0.35rem' }}>
-                    <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-deep-forest)', margin: 0 }}>
-                      {activePath.title}
-                    </h3>
-                    <Badge variant="lime">{activePath.matchPercentage || activePath.matchScore || 87}% Alignment</Badge>
-                  </div>
-                  <div style={{ fontSize: '0.885rem', color: 'var(--color-emerald)', fontWeight: 700 }}>
-                    Estimated Entry Level: {activePath.averageSalary || activePath.avgSalary || "₹ 11.2 LPA"} · {activePath.activeOpenings || 120} Active Drives
-                  </div>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => handleConfirmPath(activePath)}
-                  icon={ArrowRight}
-                  iconPosition="right"
-                >
-                  Choose This Career Path
-                </Button>
-              </div>
-
-              <p style={{ fontSize: '0.95rem', color: 'var(--color-charcoal-subtle)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-                {activePath.description}
-              </p>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1.5rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-muted-green)', marginBottom: '8px' }}>
-                    Core Required Skills
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {activeSkills.map((s) => (
-                      <span
-                        key={s}
-                        style={{
-                          backgroundColor: 'var(--color-ivory-surface)',
-                          border: '1px solid var(--color-border-medium)',
-                          padding: '4px 10px',
-                          borderRadius: 'var(--radius-md)',
-                          fontSize: '0.825rem',
-                          fontWeight: 600,
-                          color: 'var(--color-deep-forest)',
-                        }}
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-muted-green)', marginBottom: '8px' }}>
-                    Top Hiring Companies
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {activeCompanies.map((c) => (
-                      <span
-                        key={c}
-                        style={{
-                          backgroundColor: 'rgba(15, 118, 110, 0.08)',
-                          border: '1px solid rgba(15, 118, 110, 0.2)',
-                          padding: '4px 10px',
-                          borderRadius: 'var(--radius-md)',
-                          fontSize: '0.825rem',
-                          fontWeight: 700,
-                          color: 'var(--color-emerald)',
-                        }}
-                      >
-                        ✦ {c}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Search career paths, skills, domains..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  paddingLeft: '2.75rem',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1.5px solid var(--color-border-medium)',
+                  backgroundColor: 'var(--color-ivory-soft)',
+                  fontSize: '0.9375rem',
+                }}
+              />
             </div>
+
+            {/* Domain Filter Dropdown */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <select
+                value={selectedDomain}
+                onChange={(e) => setSelectedDomain(e.target.value)}
+                style={{
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: 'var(--radius-full)',
+                  border: '1.5px solid var(--color-border-medium)',
+                  backgroundColor: 'var(--color-white)',
+                  fontFamily: 'var(--font-sans)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  color: 'var(--color-forest)',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {DOMAIN_OPTIONS.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                className="btn btn-outline"
+                style={{ padding: '0.75rem 1.25rem', fontSize: '0.875rem', borderColor: 'var(--color-border-medium)' }}
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedDomain('All Domains');
+                }}
+              >
+                <SlidersHorizontal size={15} style={{ marginRight: '4px' }} />
+                Reset
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Loading Grid Skeleton */}
+          {loading && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="skeleton"
+                  style={{ height: '320px', borderRadius: 'var(--radius-2xl)' }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 2-COLUMN RESPONSIVE CAREER CARDS GRID */}
+          {!loading && (
+            <>
+              {filteredPaths.length > 0 ? (
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '1.5rem',
+                  }}
+                  className="career-paths-2col-grid"
+                >
+                  {filteredPaths.map((path, idx) => (
+                    <CareerCard
+                      key={path.id || path.slug || idx}
+                      path={path}
+                      index={idx}
+                      isSelected={
+                        selectedTrackId === path.id ||
+                        selectedTrackId === path.slug ||
+                        (user?.currentPath && user.currentPath.toLowerCase() === (path.title || '').toLowerCase())
+                      }
+                      onChooseTrack={handleChooseTrack}
+                      userSkills={userSkills}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    textAlign: 'center',
+                    padding: '4rem 2rem',
+                    background: 'var(--color-white)',
+                    borderRadius: 'var(--radius-2xl)',
+                    border: '1px solid var(--color-border-subtle)',
+                  }}
+                >
+                  <Sparkles size={36} color="var(--color-emerald)" style={{ marginBottom: '1rem' }} />
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-forest)', margin: '0 0 0.5rem 0' }}>
+                    No matching career tracks found
+                  </h3>
+                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
+                    Try adjusting your search terms or domain filter.
+                  </p>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setSearchQuery('');
+                      setSelectedDomain('All Domains');
+                    }}
+                  >
+                    View All Career Paths
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
+
+      <style>{`
+        @media (max-width: 900px) {
+          .career-paths-2col-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };

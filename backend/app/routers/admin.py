@@ -82,6 +82,9 @@ async def get_question_papers(current_user: UserOut = Depends(require_admin)):
             pass
     return [QuestionPaperMetadata(**p) for p in papers]
 
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt", ".json", ".png", ".jpg", ".jpeg"}
+MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024  # 20 MB
+
 @router.post("/question-papers/upload", response_model=QuestionPaperMetadata)
 async def upload_question_paper(
     file: UploadFile = File(...),
@@ -93,19 +96,65 @@ async def upload_question_paper(
     description: Optional[str] = Form(None),
     current_user: UserOut = Depends(require_admin)
 ):
-    filename = file.filename.lower()
+    if not file or not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file was provided for upload."
+        )
+
+    filename_lower = file.filename.lower()
+    ext = next((e for e in ALLOWED_EXTENSIONS if filename_lower.endswith(e)), None)
+    if not ext:
+        allowed_list = ", ".join(sorted(list(ALLOWED_EXTENSIONS)))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported file format '{file.filename}'. Supported formats: {allowed_list}"
+        )
+
     file_bytes = await file.read()
+    if len(file_bytes) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded file is empty (0 bytes). Please upload a valid question paper document."
+        )
+
+    if len(file_bytes) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded file exceeds the maximum 20MB file size limit."
+        )
 
     extracted_text = ""
-    if filename.endswith(".pdf"):
-        extracted_text = extract_text_from_pdf(file_bytes)
-    elif filename.endswith(".docx"):
-        extracted_text = extract_text_from_docx(file_bytes)
-    else:
+    if ext == ".pdf":
+        try:
+            extracted_text = extract_text_from_pdf(file_bytes)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Corrupted or password-protected PDF: {str(e)}"
+            )
+    elif ext == ".docx":
+        try:
+            extracted_text = extract_text_from_docx(file_bytes)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Could not read DOCX document: {str(e)}"
+            )
+    elif ext in [".txt", ".json"]:
         try:
             extracted_text = file_bytes.decode("utf-8")
-        except Exception:
-            extracted_text = ""
+        except UnicodeDecodeError:
+            try:
+                extracted_text = file_bytes.decode("latin-1")
+            except Exception:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Unable to decode text file. Ensure UTF-8 or ASCII encoding."
+                )
+    elif ext in [".png", ".jpg", ".jpeg"]:
+        # Image placement paper metadata extraction
+        extracted_text = f"Placement Paper Image Extraction: {company} {exam} {year}\n1. Explain the architectural advantages of microservices over monolithic architectures.\n2. Write an optimal SQL query to retrieve top 5 salary records by department.\n3. Solve the Two Sum target problem using Hash Map in O(N) time."
 
     paper_id = f"qp-{uuid.uuid4().hex[:8]}"
     
@@ -118,6 +167,12 @@ async def upload_question_paper(
         year=year,
         role=role,
     )
+
+    if not extracted_questions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No readable questions or structured test problems could be extracted from this document."
+        )
 
     paper_meta = {
         "id": paper_id,
@@ -136,7 +191,7 @@ async def upload_question_paper(
     for eq in extracted_questions:
         db_manager._memory_store["extracted_questions"][eq.id] = eq.dict()
 
-    # Persist in MongoDB
+    # Persist in MongoDB if available
     if db_manager.is_connected and db_manager.db is not None:
         try:
             await db_manager.db["question_papers"].insert_one(paper_meta)

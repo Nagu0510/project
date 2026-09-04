@@ -36,9 +36,12 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
       
-      // If unauthorized, clear invalid token
+      // If unauthorized, clear invalid token and notify context
       if (response.status === 401) {
         localStorage.removeItem('skillsense_token');
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('skillsense:auth:expired'));
+        }
       }
 
       if (!response.ok) {
@@ -51,11 +54,16 @@ class ApiClient {
         } catch {
           // ignore json parse error
         }
-        throw new Error(errorMsg);
+        const error = new Error(errorMsg);
+        error.status = response.status;
+        throw error;
       }
 
       return await response.json();
     } catch (err) {
+      if (!err.status && (err.message?.includes('fetch') || err.message?.includes('Network') || err.message?.includes('Failed') || err.name === 'TypeError')) {
+        err.isNetworkError = true;
+      }
       console.warn(`[SkillSense API Error] ${endpoint}:`, err.message);
       throw err;
     }

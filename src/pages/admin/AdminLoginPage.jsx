@@ -1,238 +1,83 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Lock, Mail, ShieldCheck, Sparkles, Building2, Layers } from 'lucide-react';
-import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
-import { useToast } from '../../context/ToastContext';
 
 export const AdminLoginPage = () => {
-  const navigate = useNavigate();
-  const { adminLogin } = useAuth();
-  const { addToast } = useToast();
-
-  const [email, setEmail] = useState('admin@skillsense.ai');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
+  const { adminLogin } = useAuth();
+  const navigate = useNavigate();
 
-  const handleAdminSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const newErrors = {};
-
-    if (!email.trim() || !email.includes('@')) newErrors.email = 'Please enter a valid administrator email';
-    if (!password) newErrors.password = 'Please enter your password';
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      addToast('Please check your administrator credentials.', 'error');
-      return;
-    }
-
-    setErrors({});
+    setError('');
+    if (!email.trim() || !password.trim()) { setError('Enter admin credentials.'); return; }
     setLoading(true);
-
     try {
-      await adminLogin(email, password);
-      addToast('Welcome to SkillSense Admin Console!', 'success');
-      navigate('/admin/dashboard');
+      const result = await adminLogin(email.trim(), password);
+      if (result?.success) navigate('/admin/dashboard');
     } catch (err) {
-      const msg = err.message || 'Invalid administrator credentials';
-      setErrors({ general: msg });
-      addToast(msg, 'error');
+      setError(err?.message || 'Invalid administrator credentials.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: 'var(--color-warm-ivory)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '2rem 1.5rem',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '1020px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-          gap: '2.5rem',
-          alignItems: 'center',
-        }}
-      >
-        {/* =========================================================================
-            LEFT COLUMN: Admin Branding
-            ========================================================================= */}
-        <div style={{ padding: '2rem 1.5rem' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '1.25rem' }}>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '34px',
-                height: '34px',
-                borderRadius: '8px',
-                backgroundColor: 'var(--color-deep-forest)',
-                color: 'var(--color-lime)',
-                fontSize: '1.15rem',
-              }}
-            >
-              ✦
-            </span>
-            <span
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '1.5rem',
-                color: 'var(--color-deep-forest)',
-              }}
-            >
-              SkillSense AI
-            </span>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                fontWeight: 800,
-                backgroundColor: 'var(--color-lime-soft)',
-                color: 'var(--color-deep-forest)',
-                padding: '2px 8px',
-                borderRadius: 'var(--radius-full)',
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase',
-              }}
-            >
-              Admin Portal
-            </span>
-          </div>
-
-          <h1
-            style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 'clamp(2.2rem, 4vw, 3.25rem)',
-              color: 'var(--color-deep-forest)',
-              lineHeight: 1.15,
-              marginBottom: '1rem',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Placement & Assessment Management Console
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} style={{ width: '100%', maxWidth: '440px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '14px', background: 'var(--color-lime)', color: 'var(--color-forest)', fontWeight: 700, fontSize: '1.6rem', marginBottom: '1rem' }}>&#x2726;</span>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--color-ivory)', letterSpacing: '-0.025em' }}>
+            SkillSense <span style={{ color: 'var(--color-lime)' }}>Admin</span>
           </h1>
-
-          <p
-            style={{
-              fontSize: '1.05rem',
-              color: 'var(--color-charcoal-subtle)',
-              lineHeight: 1.6,
-              marginBottom: '2rem',
-            }}
-          >
-            Upload question papers, curate extracted question banks, configure skill diagnostic assessments, and monitor corporate hiring analytics.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.885rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-emerald)' }} />
-              Automated multi-format paper OCR & question vectorization
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.885rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-emerald)' }} />
-              Cross-company question recurrence intelligence
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.885rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
-              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--color-emerald)' }} />
-              Candidate assessment verification and hiring pipeline tracking
-            </div>
-          </div>
+          <p style={{ color: 'rgba(244, 240, 231, 0.5)', fontSize: '0.875rem', marginTop: '0.375rem' }}>Restricted access — administrators only</p>
         </div>
 
-        {/* =========================================================================
-            RIGHT COLUMN: Admin Sign In Card
-            ========================================================================= */}
-        <div
-          className="card-static animate-scale-in"
-          style={{
-            backgroundColor: 'var(--color-white)',
-            borderRadius: 'var(--radius-2xl)',
-            padding: '2.5rem',
-            border: '1.5px solid rgba(15, 118, 110, 0.25)',
-            boxShadow: 'var(--shadow-xl)',
-          }}
-        >
-          <div style={{ marginBottom: '1.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.35rem' }}>
-              <ShieldCheck size={18} color="var(--color-emerald)" />
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)', letterSpacing: '0.04em' }}>
-                Secure Access
-              </span>
+        <div style={{ background: 'rgba(244, 240, 231, 0.06)', border: '1px solid rgba(183, 228, 74, 0.12)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem' }}>
+          {error && (
+            <div style={{ background: 'rgba(220, 38, 38, 0.12)', border: '1px solid rgba(220, 38, 38, 0.25)', borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', marginBottom: '1.25rem', color: '#fca5a5', fontSize: '0.875rem', fontWeight: 500 }}>
+              {error}
             </div>
-
-            <h2
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '2rem',
-                color: 'var(--color-deep-forest)',
-                margin: '0 0 0.35rem 0',
-              }}
-            >
-              SkillSense AI Admin
-            </h2>
-            <p style={{ fontSize: '0.885rem', color: 'var(--color-muted-green)', margin: 0 }}>
-              Manage assessments, question papers, students and placement intelligence.
-            </p>
-          </div>
-
-          <form onSubmit={handleAdminSubmit}>
-            <Input
-              label="Administrator Email"
-              type="email"
-              placeholder="admin@skillsense.ai"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={errors.email}
-              icon={Mail}
-              required
-            />
-
-            <Input
-              label="Password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={errors.password}
-              icon={Lock}
-              required
-            />
-
-            <div style={{ marginTop: '1.75rem', marginBottom: '1.25rem' }}>
-              <Button
-                type="submit"
-                variant="primary"
-                size="lg"
-                loading={loading}
-                style={{ width: '100%' }}
-                icon={ArrowRight}
-                iconPosition="right"
-              >
-                Sign In as Admin →
-              </Button>
+          )}
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div>
+              <label style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Admin Email</label>
+              <input type="email" autoComplete="email" placeholder="admin@skillsense.ai" value={email} onChange={(e) => setEmail(e.target.value)} required
+                style={{ width: '100%', padding: '0.75rem 1rem', background: 'rgba(244, 240, 231, 0.06)', border: '1.5px solid rgba(183, 228, 74, 0.15)', borderRadius: 'var(--radius-md)', color: 'var(--color-ivory)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
+                onFocus={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.5)'}
+                onBlur={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.15)'}
+              />
             </div>
-
-            <div style={{ textAlign: 'center', fontSize: '0.885rem', color: 'var(--color-charcoal-subtle)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem' }}>
-              Looking for student learning?{' '}
-              <Link to="/login" style={{ fontWeight: 700, color: 'var(--color-emerald)' }}>
-                Student Sign In
-              </Link>
+            <div>
+              <label style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Password</label>
+              <input type="password" autoComplete="current-password" placeholder="Admin password" value={password} onChange={(e) => setPassword(e.target.value)} required
+                style={{ width: '100%', padding: '0.75rem 1rem', background: 'rgba(244, 240, 231, 0.06)', border: '1.5px solid rgba(183, 228, 74, 0.15)', borderRadius: 'var(--radius-md)', color: 'var(--color-ivory)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
+                onFocus={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.5)'}
+                onBlur={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.15)'}
+              />
             </div>
+            <button type="submit" disabled={loading}
+              style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-full)', background: loading ? 'rgba(183, 228, 74, 0.5)' : 'var(--color-lime)', color: 'var(--color-forest)', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: '1rem', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '0.25rem' }}>
+              {loading ? 'Authenticating...' : 'Access Admin Dashboard →'}
+            </button>
           </form>
         </div>
-      </div>
+
+        <div style={{ textAlign: 'center', marginTop: '1.75rem' }}>
+          <Link to="/login" style={{ color: 'rgba(244, 240, 231, 0.5)', fontSize: '0.85rem', textDecoration: 'none' }}>Back to student login</Link>
+        </div>
+        <div style={{ marginTop: '1.25rem', padding: '0.875rem 1rem', background: 'rgba(183, 228, 74, 0.06)', border: '1px solid rgba(183, 228, 74, 0.1)', borderRadius: 'var(--radius-md)' }}>
+          <p style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.4)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
+            Demo: admin@skillsense.ai / admin123
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 };
+
+export default AdminLoginPage;

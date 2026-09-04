@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
 from app.models.roadmap import RoadmapResponse, ProgressUpdate
 from app.models.user import UserOut
-from app.utils.security import require_student
+from app.utils.security import require_student, get_optional_current_user
 from app.services.roadmap_service import generate_personalized_roadmap
 from app.database import db_manager
 
@@ -11,7 +11,7 @@ router = APIRouter(prefix="/student/roadmap", tags=["Roadmaps"])
 @router.get("", response_model=RoadmapResponse)
 async def get_roadmap(
     career_path: Optional[str] = None,
-    current_user: Optional[UserOut] = Depends(require_student)
+    current_user: Optional[UserOut] = Depends(get_optional_current_user)
 ):
     target_path = career_path or (current_user.current_path if current_user else "Backend Developer") or "Backend Developer"
     gaps = current_user.gap_skills if current_user else ["System Design", "Docker", "DSA"]

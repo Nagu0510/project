@@ -20,10 +20,12 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
   const [role, setRole] = useState('Ninja / Digital Cadre');
   const [description, setDescription] = useState('');
 
-  // Simulation State
+  // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState(0);
   const [isCompleted, setIsCompleted] = useState(false);
+  const [uploadedResult, setUploadedResult] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
 
   const steps = [
     "Uploading paper to secure workspace...",
@@ -37,6 +39,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
   const handleFileDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
+    setUploadError(null);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0];
       setFile({
@@ -49,6 +52,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
   };
 
   const handleFileSelect = (e) => {
+    setUploadError(null);
     if (e.target.files && e.target.files[0]) {
       const selected = e.target.files[0];
       setFile({
@@ -62,53 +66,53 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
 
   const startAnalysisSimulation = async (e) => {
     e.preventDefault();
-    const activeFile = file?.rawFile || new File(["Sample Question Paper Text"], `${company}_${examName.replace(/\s+/g, '_')}_Paper.pdf`, { type: 'application/pdf' });
+    setUploadError(null);
+
+    if (!file?.rawFile) {
+      setUploadError('Please select a question paper file to upload.');
+      addToast('Please select a question paper file to upload.', 'error');
+      return;
+    }
 
     setIsProcessing(true);
     setProcessingStep(0);
     setIsCompleted(false);
 
     try {
-      if (file?.rawFile) {
-        await adminService.uploadQuestionPaper(file.rawFile, {
-          company,
-          exam: examName,
-          year: parseInt(year) || 2025,
-          paperType,
-          role,
-          description,
-        });
-      }
-    } catch (err) {
-      console.warn("Backend paper upload fallback:", err.message);
-    }
+      // Advance steps smoothly during processing
+      const stepInterval = setInterval(() => {
+        setProcessingStep((prev) => (prev < steps.length - 2 ? prev + 1 : prev));
+      }, 400);
 
-    // Sequential step progression for visual feedback
-    const interval = setInterval(() => {
-      setProcessingStep((prev) => {
-        if (prev >= steps.length - 1) {
-          clearInterval(interval);
-          setIsProcessing(false);
-          setIsCompleted(true);
-          addToast("Paper analyzed successfully! Extracted questions added to Question Bank.", "success");
-          if (onUploadComplete) {
-            onUploadComplete({
-              id: 'qp-' + Date.now(),
-              company,
-              exam: examName,
-              year,
-              questions: 48,
-              type: paperType,
-              status: 'Extracted',
-              uploadedAt: new Date().toISOString().split('T')[0],
-              role,
-            });
-          }
-          return prev;
-        }
-        return prev + 1;
+      const response = await adminService.uploadQuestionPaper(file.rawFile, {
+        company,
+        exam: examName,
+        year: parseInt(year) || 2025,
+        paperType,
+        role,
+        description,
       });
-    }, 500);
+
+      clearInterval(stepInterval);
+      setProcessingStep(steps.length - 1);
+
+      setTimeout(() => {
+        setIsProcessing(false);
+        setIsCompleted(true);
+        setUploadedResult(response);
+        addToast(`Paper analyzed! ${response.questions_count || 10} questions extracted.`, 'success');
+        if (onUploadComplete) {
+          onUploadComplete(response);
+        }
+      }, 500);
+
+    } catch (err) {
+      setIsProcessing(false);
+      setIsCompleted(false);
+      const errMsg = err?.message || 'Failed to upload and extract question paper.';
+      setUploadError(errMsg);
+      addToast(errMsg, 'error');
+    }
   };
 
   const resetForm = () => {
@@ -116,6 +120,8 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
     setIsCompleted(false);
     setIsProcessing(false);
     setProcessingStep(0);
+    setUploadedResult(null);
+    setUploadError(null);
   };
 
   return (
@@ -139,6 +145,27 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               Upload placement question sheets, campus drive papers, or coding tests for automatic AI intelligence extraction.
             </p>
           </div>
+
+          {uploadError && (
+            <div
+              style={{
+                backgroundColor: '#FEF2F2',
+                border: '1px solid #F87171',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.85rem 1rem',
+                marginBottom: '1.25rem',
+                color: '#991B1B',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <span>⚠️</span>
+              <span>{uploadError}</span>
+            </div>
+          )}
 
           {/* Drag & Drop Area */}
           <div

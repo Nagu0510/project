@@ -56,6 +56,15 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Opt
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+async def get_optional_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Optional[UserOut]:
+    """Optionally verify Bearer token; returns None if not provided or invalid without raising exception"""
+    if not token:
+        return None
+    try:
+        return await get_current_user(token)
+    except Exception:
+        return None
+
 async def require_student(current_user: UserOut = Depends(get_current_user)) -> UserOut:
     """Enforce student role permission"""
     if current_user.role != "student":

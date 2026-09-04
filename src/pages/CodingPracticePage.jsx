@@ -1,34 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/common/Sidebar';
 import { Navbar } from '../components/common/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { practiceService } from '../services/practiceService';
 import { useAuth } from '../context/AuthContext';
-import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import {
   Play,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
-  Sparkles,
-  RefreshCw,
   Code2,
   Send,
-  Eye,
-  Sliders,
-  ChevronDown,
+  SlidersHorizontal,
+  Check,
+  X,
+  HelpCircle,
 } from 'lucide-react';
+
+const SKILL_OPTIONS = ['All Skills', 'Python', 'Java', 'JavaScript', 'SQL', 'DSA', 'React'];
+const DIFFICULTY_OPTIONS = ['All', 'Easy', 'Medium', 'Hard'];
 
 export const CodingPracticePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedSlug = searchParams.get('problem') || 'two-sum';
-  const requestedTopic = searchParams.get('topic');
 
   const { user, isAuthenticated, requireAuth } = useAuth();
-  const { showPreviousQuestionInsights } = useSettings();
   const { addToast } = useToast();
 
   const [problems, setProblems] = useState([]);
@@ -36,24 +35,37 @@ export const CodingPracticePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Filter States
+  const [selectedSkill, setSelectedSkill] = useState('All Skills');
+  const [selectedDifficulty, setSelectedDifficulty] = useState('All');
+  const [selectedTopic, setSelectedTopic] = useState('All');
+
+  // IDE / Execution States
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const [code, setCode] = useState('');
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState(null);
-  const [showHint, setShowHint] = useState(false);
 
-  // Fetch problems on mount
+  // Interactive Question Answer state (for MCQ/Conceptual items)
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [answering, setAnswering] = useState(false);
+  const [answerFeedback, setAnswerFeedback] = useState(null);
+
+  // Fetch problems on mount and when filters change
   useEffect(() => {
     let isMounted = true;
-
     const loadProblems = async () => {
       setLoading(true);
       setError(null);
       try {
-        const fetched = await practiceService.getProblems();
+        const filters = {};
+        if (selectedSkill !== 'All Skills') filters.skill = selectedSkill;
+        if (selectedDifficulty !== 'All') filters.difficulty = selectedDifficulty;
+        if (selectedTopic !== 'All') filters.topic = selectedTopic;
+
+        const fetched = await practiceService.getProblems(filters);
         if (isMounted) {
           setProblems(fetched);
-          // Find matching problem by slug or fallback to first
           const target = fetched.find((p) => p.slug === requestedSlug || p.id === requestedSlug) || fetched[0] || null;
           setCurrentProblem(target);
           if (target) {
@@ -62,43 +74,34 @@ export const CodingPracticePage = () => {
           }
         }
       } catch (err) {
-        if (isMounted) {
-          setError('Failed to load coding problem catalog.');
-          console.warn('[CodingPractice] Error loading problems:', err);
-        }
+        if (isMounted) setError('Failed to load coding problem catalog.');
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     };
-
     loadProblems();
-    return () => {
-      isMounted = false;
-    };
-  }, [requestedSlug]);
+    return () => { isMounted = false; };
+  }, [requestedSlug, selectedSkill, selectedDifficulty, selectedTopic]);
 
-  // Update starter code when language or current problem changes
+  // Sync starter code
   useEffect(() => {
     if (currentProblem) {
       const newCode = currentProblem.starterCode?.[selectedLanguage] || currentProblem.starter_code?.[selectedLanguage] || '';
       setCode(newCode);
       setOutput(null);
+      setSelectedOption(null);
+      setAnswerFeedback(null);
     }
   }, [selectedLanguage, currentProblem]);
-
-  const handleLanguageChange = (lang) => {
-    setSelectedLanguage(lang);
-  };
 
   const handleSelectProblem = (slug) => {
     setSearchParams({ problem: slug });
     const target = problems.find((p) => p.slug === slug || p.id === slug);
     if (target) {
       setCurrentProblem(target);
-      setShowHint(false);
       setOutput(null);
+      setSelectedOption(null);
+      setAnswerFeedback(null);
     }
   };
 
@@ -106,15 +109,13 @@ export const CodingPracticePage = () => {
     requireAuth(async () => {
       setRunning(true);
       setOutput(null);
-
       try {
         if (currentProblem?.slug) {
           await practiceService.submitAttempt(currentProblem.slug, selectedLanguage, code);
         }
       } catch (e) {
-        console.warn('Attempt save notice:', e);
+        console.warn('Attempt notice:', e);
       }
-
       setTimeout(() => {
         setRunning(false);
         setOutput({
@@ -123,10 +124,10 @@ export const CodingPracticePage = () => {
           total: currentProblem?.testCases?.length || 3,
           runtime: '38 ms',
           memory: '16.2 MB',
-          aiFeedback: currentProblem?.aiFeedback?.strengths || 'Optimal linear hash map solution verified for placement test suites.',
+          aiFeedback: 'Optimal linear time complexity solution verified.',
         });
         addToast('Test cases passed successfully!', 'success');
-      }, 750);
+      }, 650);
     }, '/practice');
   };
 
@@ -139,393 +140,318 @@ export const CodingPracticePage = () => {
       } catch (e) {
         console.warn('Submission notice:', e);
       }
-      addToast('Solution submitted to candidate portfolio and verified.', 'success');
+      addToast('Solution submitted to portfolio and verified.', 'success');
     }, '/practice');
   };
 
-  // Safe property extraction
   const examples = Array.isArray(currentProblem?.examples) ? currentProblem.examples : [];
-  const hints = Array.isArray(currentProblem?.hints) ? currentProblem.hints : [];
-  const prevAsked = currentProblem?.previouslyAsked || {};
-  const prevCompanies = Array.isArray(prevAsked.companies) ? prevAsked.companies : ['TCS', 'Infosys'];
+  const testCases = Array.isArray(currentProblem?.testCases || currentProblem?.test_cases) ? (currentProblem.testCases || currentProblem.test_cases) : [];
 
   return (
-    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-warm-ivory)' }}>
+    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
       {isAuthenticated ? <Sidebar /> : <Navbar />}
 
-      <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '2rem 1.5rem 4rem' }}>
+      <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '2rem 1.5rem 5rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0, maxWidth: '1400px', margin: '0 auto' }}>
-          {/* Guest Preview Banner */}
-          {!isAuthenticated && (
-            <div
-              style={{
-                backgroundColor: 'var(--color-lime-soft)',
-                border: '1px solid rgba(6, 46, 37, 0.1)',
-                borderRadius: 'var(--radius-lg)',
-                padding: '0.85rem 1.25rem',
-                marginBottom: '1.5rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '0.75rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.885rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
+          
+          {/* Header & Filter Controls */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            style={{
+              background: 'var(--color-white)',
+              border: '1px solid var(--color-border-subtle)',
+              borderRadius: 'var(--radius-2xl)',
+              padding: '1.25rem 1.5rem',
+              marginBottom: '1.5rem',
+              boxShadow: 'var(--shadow-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+            }}
+          >
+            <div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-                <span><strong>Coding Studio Preview:</strong> Explore problem statements and code editor. Sign in to execute tests and submit code.</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)', letterSpacing: '0.06em' }}>
+                  Interactive Practice Arena
+                </span>
               </div>
-              <Button variant="primary" size="sm" onClick={() => requireAuth(null, '/practice')}>
-                Sign In to Run & Submit
-              </Button>
+              <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-forest)', margin: 0, lineHeight: 1.1 }}>
+                Coding & Skill Practice
+              </h1>
             </div>
-          )}
 
-          {/* Loading State */}
-          {loading && (
-            <div style={{ padding: '4rem 2rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border-subtle)' }}>
-              <div style={{ color: 'var(--color-emerald)', fontSize: '1.2rem', fontWeight: 700, marginBottom: '0.5rem' }}>
-                ✦ Loading Practice Studio...
+            {/* Filter Dropdowns */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-forest)' }}>Skill:</span>
+                <select
+                  value={selectedSkill}
+                  onChange={(e) => setSelectedSkill(e.target.value)}
+                  style={{
+                    padding: '0.5rem 0.85rem',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--color-border-medium)',
+                    backgroundColor: 'var(--color-ivory-soft)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    color: 'var(--color-forest)',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {SKILL_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
               </div>
-              <p style={{ color: 'var(--color-muted-green)', fontSize: '0.9rem', margin: 0 }}>
-                Preparing test cases and placement compiler environment.
-              </p>
-            </div>
-          )}
 
-          {/* Error State */}
-          {!loading && error && (
-            <div style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid #EF4444' }}>
-              <AlertCircle size={32} color="#EF4444" style={{ marginBottom: '0.5rem' }} />
-              <h3 style={{ color: 'var(--color-deep-forest)', margin: '0 0 0.5rem 0' }}>Unable to load problem</h3>
-              <p style={{ color: 'var(--color-charcoal-subtle)', fontSize: '0.9rem', marginBottom: '1rem' }}>{error}</p>
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                Retry
-              </Button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-forest)' }}>Difficulty:</span>
+                <select
+                  value={selectedDifficulty}
+                  onChange={(e) => setSelectedDifficulty(e.target.value)}
+                  style={{
+                    padding: '0.5rem 0.85rem',
+                    borderRadius: 'var(--radius-full)',
+                    border: '1px solid var(--color-border-medium)',
+                    backgroundColor: 'var(--color-ivory-soft)',
+                    fontSize: '0.8125rem',
+                    fontWeight: 600,
+                    color: 'var(--color-forest)',
+                    outline: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {DIFFICULTY_OPTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
             </div>
-          )}
-
-          {/* Empty / Not Found State */}
-          {!loading && !error && !currentProblem && (
-            <div style={{ padding: '3rem 2rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border-subtle)' }}>
-              <Code2 size={32} color="var(--color-emerald)" style={{ marginBottom: '0.5rem' }} />
-              <h3 style={{ color: 'var(--color-deep-forest)', margin: '0 0 0.5rem 0' }}>No Practice Problem Selected</h3>
-              <p style={{ color: 'var(--color-charcoal-subtle)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-                Please select a problem statement from the list below.
-              </p>
-              {problems.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  {problems.map((p) => (
-                    <Button key={p.id} variant="primary" size="sm" onClick={() => handleSelectProblem(p.slug)}>
-                      {p.title}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          </motion.div>
 
           {/* Main IDE Workspace */}
           {!loading && currentProblem && (
-            <>
-              {/* Top Bar */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginBottom: '1.25rem',
-                  flexWrap: 'wrap',
-                  gap: '1rem',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.2rem' }}>
-                    <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)' }}>
-                      Interactive Practice Studio
-                    </span>
-                    {!isAuthenticated && <Badge variant="lime" size="sm">Demo Mode</Badge>}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.85rem', color: 'var(--color-deep-forest)', margin: 0 }}>
-                      {currentProblem.title}
-                    </h1>
-
-                    {/* Problem Switcher Dropdown */}
-                    {problems.length > 1 && (
-                      <select
-                        value={currentProblem.slug}
-                        onChange={(e) => handleSelectProblem(e.target.value)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 'var(--radius-md)',
-                          border: '1px solid var(--color-border-medium)',
-                          backgroundColor: 'var(--color-ivory-surface)',
-                          fontSize: '0.8rem',
-                          fontWeight: 600,
-                          color: 'var(--color-emerald)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {problems.map((p) => (
-                          <option key={p.id} value={p.slug}>
-                            {p.title} ({p.difficulty})
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <select
-                    value={selectedLanguage}
-                    onChange={(e) => handleLanguageChange(e.target.value)}
-                    style={{
-                      padding: '0.55rem 1rem',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--color-border-medium)',
-                      backgroundColor: 'var(--color-white)',
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      color: 'var(--color-deep-forest)',
-                      outline: 'none',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <option value="python">Python 3.12</option>
-                    <option value="java">Java 21</option>
-                    <option value="javascript">JavaScript (Node 20)</option>
-                  </select>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRunCode}
-                    loading={running}
-                    icon={Play}
-                  >
-                    Run Code
-                  </Button>
-
-                  <Button
-                    variant="lime"
-                    size="sm"
-                    onClick={handleSubmit}
-                    icon={Send}
-                  >
-                    Submit Solution
-                  </Button>
-                </div>
-              </div>
-
-              {/* TWO-COLUMN CODING IDE */}
-              <div
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentProblem.id || currentProblem.slug}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'minmax(320px, 440px) 1fr',
-                  gap: '1.25rem',
-                  alignItems: 'stretch',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '1.5rem',
                 }}
-                className="coding-practice-grid"
+                className="practice-workspace-grid"
               >
-                {/* Left Problem Description */}
+                {/* Left Panel: Problem Statement */}
                 <div
-                  className="card-static"
                   style={{
-                    backgroundColor: 'var(--color-white)',
-                    borderRadius: 'var(--radius-xl)',
-                    padding: '1.5rem',
+                    background: 'var(--color-white)',
                     border: '1px solid var(--color-border-subtle)',
-                    overflowY: 'auto',
-                    maxHeight: '620px',
+                    borderRadius: 'var(--radius-2xl)',
+                    padding: '1.75rem',
+                    boxShadow: 'var(--shadow-md)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '1.25rem',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Badge variant={currentProblem.difficulty === 'Easy' ? 'success' : 'warning'}>{currentProblem.difficulty}</Badge>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', fontWeight: 600 }}>
-                      Topic: {currentProblem.topic}
-                    </span>
-                  </div>
-
-                  {/* Previously Asked Notice */}
-                  {prevAsked.exam && (
-                    <div
-                      style={{
-                        padding: '0.85rem 1rem',
-                        backgroundColor: 'var(--color-ivory-surface)',
-                        border: '1px solid var(--color-border-subtle)',
-                        borderRadius: 'var(--radius-md)',
-                        fontSize: '0.825rem',
-                      }}
-                    >
-                      <div style={{ fontWeight: 800, color: 'var(--color-emerald)', marginBottom: '2px' }}>
-                        ✦ Historical Placement Recurrence
-                      </div>
-                      <div style={{ color: 'var(--color-deep-forest)' }}>
-                        Appeared in <strong>{prevAsked.exam}</strong> with <strong>{prevAsked.frequency || prevAsked.appearances || 5} repeats</strong> across {prevCompanies.join(', ')}.
-                      </div>
-                    </div>
-                  )}
-
                   <div>
-                    <h4 style={{ fontSize: '0.825rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-muted-green)', marginBottom: '6px' }}>
-                      Problem Description
-                    </h4>
-                    <p style={{ fontSize: '0.9rem', color: 'var(--color-charcoal-subtle)', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-line' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Badge variant={currentProblem.difficulty === 'Easy' ? 'emerald' : currentProblem.difficulty === 'Medium' ? 'medium' : 'hard'}>
+                          {currentProblem.difficulty}
+                        </Badge>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                          {currentProblem.category || currentProblem.topic || 'Coding'}
+                        </span>
+                      </div>
+
+                      {problems.length > 1 && (
+                        <select
+                          value={currentProblem.slug}
+                          onChange={(e) => handleSelectProblem(e.target.value)}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--color-border-medium)',
+                            backgroundColor: 'var(--color-ivory-soft)',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            color: 'var(--color-forest)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {problems.map((p) => (
+                            <option key={p.id} value={p.slug}>
+                              {p.title} ({p.difficulty})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+
+                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-forest)', margin: '0 0 1rem 0' }}>
+                      {currentProblem.title}
+                    </h2>
+
+                    <p style={{ fontSize: '0.9375rem', color: 'var(--color-charcoal)', lineHeight: 1.7, marginBottom: '1.5rem', whiteSpace: 'pre-line' }}>
                       {currentProblem.description}
                     </p>
-                  </div>
 
-                  {/* Examples */}
-                  {examples.length > 0 && (
-                    <div>
-                      <h4 style={{ fontSize: '0.825rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-muted-green)', marginBottom: '6px' }}>
-                        Examples
-                      </h4>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {/* Examples Section */}
+                    {examples.length > 0 && (
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-forest)', marginBottom: '0.75rem' }}>
+                          Example Cases
+                        </h4>
                         {examples.map((ex, idx) => (
                           <div
                             key={idx}
                             style={{
-                              padding: '8px 12px',
+                              background: 'var(--color-ivory-soft)',
+                              border: '1px solid var(--color-border-medium)',
                               borderRadius: 'var(--radius-md)',
-                              backgroundColor: 'var(--color-ivory-surface)',
-                              fontSize: '0.8rem',
+                              padding: '0.875rem 1rem',
+                              marginBottom: '0.625rem',
+                              fontSize: '0.85rem',
                               fontFamily: 'var(--font-mono)',
                             }}
                           >
                             <div><strong>Input:</strong> {ex.input}</div>
                             <div><strong>Output:</strong> {ex.output}</div>
-                            {ex.explanation && <div style={{ color: 'var(--color-muted-green)', marginTop: '2px' }}>// {ex.explanation}</div>}
+                            {ex.explanation && <div style={{ color: 'var(--color-text-muted)', marginTop: '4px', fontFamily: 'var(--font-sans)', fontSize: '0.8rem' }}>{ex.explanation}</div>}
                           </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Company Tagging Footer */}
+                  {currentProblem.companies && currentProblem.companies.length > 0 && (
+                    <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+                        Recently asked in drives by:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {currentProblem.companies.map((c) => (
+                          <span key={c} className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
+                            ✦ {c}
+                          </span>
                         ))}
                       </div>
                     </div>
                   )}
-
-                  {/* Hints */}
-                  {hints.length > 0 && (
-                    <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem' }}>
-                      <button
-                        onClick={() => setShowHint(!showHint)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--color-emerald)',
-                          fontWeight: 700,
-                          fontSize: '0.85rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          padding: 0,
-                        }}
-                      >
-                        <Sparkles size={14} />
-                        <span>{showHint ? 'Hide Algorithmic Hint' : 'Show Algorithmic Hint'}</span>
-                      </button>
-
-                      {showHint && (
-                        <div style={{ marginTop: '8px', padding: '10px', backgroundColor: 'var(--color-lime-soft)', borderRadius: 'var(--radius-md)', fontSize: '0.825rem', color: 'var(--color-deep-forest)', lineHeight: 1.45 }}>
-                          {hints[0]}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
-                {/* Right Code Editor & Console */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div
-                    style={{
-                      backgroundColor: '#0F172A',
-                      borderRadius: 'var(--radius-xl)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      height: '420px',
-                    }}
-                  >
-                    <div
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#1E293B',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#EF4444' }} />
-                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
-                        <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#10B981' }} />
+                {/* Right Panel: Code Editor IDE */}
+                <div
+                  style={{
+                    background: 'var(--color-forest)',
+                    borderRadius: 'var(--radius-2xl)',
+                    padding: '1.5rem',
+                    boxShadow: 'var(--shadow-xl)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <div>
+                    {/* Header bar: Language Switcher + Run/Submit buttons */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                      <select
+                        value={selectedLanguage}
+                        onChange={(e) => setSelectedLanguage(e.target.value)}
+                        style={{
+                          padding: '0.4rem 0.85rem',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid rgba(183, 228, 74, 0.3)',
+                          backgroundColor: 'rgba(244, 240, 231, 0.08)',
+                          color: 'var(--color-ivory)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.825rem',
+                          outline: 'none',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <option value="python">Python 3</option>
+                        <option value="java">Java 21</option>
+                        <option value="javascript">JavaScript</option>
+                      </select>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Button variant="lime" size="sm" onClick={handleRunCode} disabled={running}>
+                          {running ? 'Running...' : 'Run Code ▶'}
+                        </Button>
+                        <Button variant="primary" size="sm" onClick={handleSubmit}>
+                          Submit
+                        </Button>
                       </div>
-                      <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: '#94A3B8' }}>
-                        solution.{selectedLanguage === 'python' ? 'py' : selectedLanguage === 'java' ? 'java' : 'js'}
-                      </span>
                     </div>
 
+                    {/* Code Editor Textarea */}
                     <textarea
                       value={code}
                       onChange={(e) => setCode(e.target.value)}
+                      spellCheck={false}
                       style={{
-                        flex: 1,
+                        width: '100%',
+                        height: '320px',
+                        background: 'rgba(0, 0, 0, 0.25)',
+                        border: '1px solid rgba(183, 228, 74, 0.15)',
+                        borderRadius: 'var(--radius-lg)',
                         padding: '1rem',
-                        backgroundColor: '#0F172A',
-                        color: '#F8FAFC',
+                        color: 'var(--color-lime-soft)',
                         fontFamily: 'var(--font-mono)',
-                        fontSize: '0.9rem',
+                        fontSize: '0.875rem',
                         lineHeight: 1.6,
-                        border: 'none',
                         outline: 'none',
-                        resize: 'none',
+                        resize: 'vertical',
                       }}
-                      spellCheck="false"
                     />
                   </div>
 
-                  {/* Output Console */}
+                  {/* Output Terminal */}
                   {output && (
-                    <div
-                      className="card-static animate-scale-in"
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
                       style={{
-                        padding: '1.25rem',
-                        backgroundColor: 'var(--color-white)',
-                        borderRadius: 'var(--radius-xl)',
-                        border: '1px solid var(--color-border-subtle)',
+                        marginTop: '1rem',
+                        background: 'rgba(244, 240, 231, 0.06)',
+                        border: '1px solid rgba(183, 228, 74, 0.25)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '1rem',
+                        color: 'var(--color-ivory)',
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Badge variant="success">Status: {output.status}</Badge>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--color-muted-green)' }}>
-                            {output.passed}/{output.total} Tests Passed · Runtime: {output.runtime}
-                          </span>
-                        </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-lime)' }}>
+                          ✓ Test Results: {output.passed}/{output.total} Passed
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.5)', fontFamily: 'var(--font-mono)' }}>
+                          Runtime: {output.runtime}
+                        </span>
                       </div>
-
-                      <div style={{ fontSize: '0.85rem', color: 'var(--color-deep-forest)', lineHeight: 1.45, backgroundColor: 'var(--color-ivory-surface)', padding: '10px 14px', borderRadius: 'var(--radius-md)' }}>
-                        <strong>✦ AI Code Review:</strong> {output.aiFeedback}
-                      </div>
-                    </div>
+                      <p style={{ fontSize: '0.8rem', color: 'rgba(244, 240, 231, 0.75)', margin: 0, lineHeight: 1.5 }}>
+                        {output.aiFeedback}
+                      </p>
+                    </motion.div>
                   )}
                 </div>
-              </div>
-            </>
+              </motion.div>
+            </AnimatePresence>
           )}
         </div>
       </main>
 
       <style>{`
         @media (max-width: 900px) {
-          .coding-practice-grid {
+          .practice-workspace-grid {
             grid-template-columns: 1fr !important;
           }
         }
