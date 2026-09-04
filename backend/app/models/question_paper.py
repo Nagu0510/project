@@ -46,28 +46,37 @@ class PreviousQuestion(BaseModel):
     role: Optional[str] = "Software Engineer"
     topic: str
     subtopic: Optional[str] = None
-    difficulty: str = "Medium"  # 'Easy' | 'Medium' | 'Hard'
-    question_type: str = "Coding"  # 'MCQ' | 'Coding' | 'System Design'
+    difficulty: str = "Medium"
+    question_type: str = "Coding"
     frequency: int = 1
     appearances: int = 1
     badge: str = "Frequently Asked"
     badge_type: str = "lime"
     description: Optional[str] = None
-    similarity: int = 90
-    status: str = "published"  # 'approved' | 'published' | 'archived'
+    similarity: float = 0.90
+    status: str = "published"
     historical_occurrences: List[Dict[str, Any]] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class QuestionMatchRequest(BaseModel):
+    question_id: Optional[str] = None
     question_text: str
     topic: Optional[str] = None
 
+class MatchDetail(BaseModel):
+    company: str
+    exam: str
+    year: int
+    similarity: float
+
 class QuestionMatchResponse(BaseModel):
     matched: bool
-    similarity: float
-    topic: str
-    difficulty: str
-    exam_origin: str
-    appearances_count: int
-    companies: List[str]
+    similarity: float = 0.0
+    topic: str = "General"
+    difficulty: str = "Medium"
+    exam_origin: str = ""
+    appearances_count: int = 0
+    companies: List[str] = []
+    best_match: Optional[MatchDetail] = None
+    matches: List[MatchDetail] = []
     historical_occurrences: List[Dict[str, Any]] = []

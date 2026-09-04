@@ -2,10 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import List, Optional
 import uuid
 from datetime import datetime
-from app.models.practice import CodingProblem, PracticeAttempt
+from app.models.practice import (
+    CodingProblem,
+    PracticeAttempt,
+    CodeRunRequest,
+    CodeRunResponse,
+    CodeSubmitRequest,
+    CodeSubmitResponse
+)
 from app.models.user import UserOut
 from app.utils.security import get_current_user
 from app.database import db_manager
+from app.services.code_execution_service import execute_in_sandbox, run_test_cases
 
 router = APIRouter(prefix="/practice", tags=["Coding Practice"])
 
@@ -188,9 +196,27 @@ EXPANDED_CODING_PROBLEMS = [
     },
 ]
 
-# Pre-seed in memory
+def _normalize_problem_obj(p: dict) -> dict:
+    p_copy = dict(p)
+    sc = p_copy.get("starter_code") or {}
+    sc.setdefault("python", "# Python 3 Solution\nimport sys\ns = sys.stdin.read().strip()\nprint(s)\n")
+    sc.setdefault("java", "import java.util.Scanner;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) System.out.println(sc.nextLine());\n    }\n}\n")
+    sc.setdefault("c", "#include <stdio.h>\nint main() {\n    char s[1000];\n    if (fgets(s, sizeof(s), stdin)) printf(\"%s\", s);\n    return 0;\n}\n")
+    sc.setdefault("cpp", "#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    string s;\n    if (getline(cin, s)) cout << s << endl;\n    return 0;\n}\n")
+    sc.setdefault("javascript", "const fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8');\nconsole.log(input.trim());\n")
+    p_copy["starter_code"] = sc
+    
+    tcs = p_copy.get("test_cases", [])
+    if not p_copy.get("sample_test_cases"):
+        p_copy["sample_test_cases"] = [tc for tc in tcs if not tc.get("is_hidden")]
+    if not p_copy.get("hidden_test_cases"):
+        p_copy["hidden_test_cases"] = [tc for tc in tcs if tc.get("is_hidden")]
+    return p_copy
+
+# Pre-seed in memory with starter code normalization
 for p in EXPANDED_CODING_PROBLEMS:
-    db_manager._memory_store["practice_problems"][p["slug"]] = p
+    norm = _normalize_problem_obj(p)
+    db_manager._memory_store["practice_problems"][p["slug"]] = norm
 
 @router.get("/problems", response_model=List[CodingProblem])
 async def get_practice_problems(
@@ -220,6 +246,63 @@ async def get_practice_problem(problem_slug: str):
                 return CodingProblem(**p)
         return CodingProblem(**EXPANDED_CODING_PROBLEMS[0])
     return CodingProblem(**problem)
+
+@router.post("/code/run", response_model=CodeRunResponse)
+async def run_practice_code(req: CodeRunRequest):
+    """Executes single source code submission in isolated sandbox (Piston API)"""
+    res = execute_in_sandbox(req.language, req.source_code, req.stdin or "")
+    return CodeRunResponse(
+        status=res["status"],
+        stdout=res["stdout"],
+        stderr=res["stderr"],
+        compile_output=res["compile_output"],
+        runtime_ms=res["runtime_ms"],
+        memory_kb=res["memory_kb"],
+    )
+
+@router.post("/code/submit", response_model=CodeSubmitResponse)
+async def submit_practice_code(
+    req: CodeSubmitRequest,
+    current_user: Optional[UserOut] = Depends(get_current_user)
+):
+    """Evaluates candidate code against sample and hidden test cases in secure sandbox"""
+    slug = req.problem_slug or req.problem_id or "two-sum"
+    prob = db_manager._memory_store["practice_problems"].get(slug)
+    if not prob:
+        for p in EXPANDED_CODING_PROBLEMS:
+            if p["slug"] == slug or p["id"] == slug:
+                prob = p
+                break
+    if not prob:
+        prob = EXPANDED_CODING_PROBLEMS[0]
+
+    all_test_cases = prob.get("test_cases", []) or (prob.get("sample_test_cases", []) + prob.get("hidden_test_cases", []))
+    res = run_test_cases(req.language, req.source_code, all_test_cases)
+
+    # Persist attempt record
+    user_id = current_user.id if current_user else "usr-guest"
+    attempt = PracticeAttempt(
+        id=f"att-{uuid.uuid4().hex[:8]}",
+        user_id=user_id,
+        problem_slug=slug,
+        language=req.language,
+        code=req.source_code,
+        execution_available=True,
+        message=f"Evaluation completed. Status: {res['status']}, Passed {res['passed_count']}/{res['total_count']} test cases."
+    )
+    db_manager._memory_store["practice_attempts"][attempt.id] = attempt.dict()
+
+    return CodeSubmitResponse(
+        status=res["status"],
+        passed_count=res["passed_count"],
+        total_count=res["total_count"],
+        stdout=res["stdout"],
+        stderr=res["stderr"],
+        compile_output=res["compile_output"],
+        runtime_ms=res["runtime_ms"],
+        memory_kb=res["memory_kb"],
+        test_results=res["test_results"],
+    )
 
 @router.post("/problems/{problem_slug}/attempt", response_model=PracticeAttempt)
 async def record_practice_attempt(

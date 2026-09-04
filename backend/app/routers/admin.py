@@ -7,6 +7,7 @@ from app.models.user import UserOut
 from app.utils.security import require_admin
 from app.services.resume_service import extract_text_from_pdf, extract_text_from_docx
 from app.services.question_extraction_service import extract_questions_from_text
+from app.services.question_matching_service import invalidate_question_matching_cache
 from app.database import db_manager
 
 router = APIRouter(prefix="/admin", tags=["Admin Operations"])
@@ -263,6 +264,7 @@ async def update_question_status(
                 "historical_occurrences": [],
                 "created_at": datetime.utcnow(),
             }
+            invalidate_question_matching_cache()
 
         return {"success": True, "question_id": question_id, "status": new_status}
     raise HTTPException(status_code=404, detail="Question not found")

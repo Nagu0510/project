@@ -30,6 +30,68 @@ export const practiceService = {
     }
   },
 
+  async runCode(problemId, language, sourceCode, stdin = '') {
+    try {
+      return await api.post('/practice/code/run', {
+        problem_id: problemId,
+        language: language,
+        source_code: sourceCode,
+        stdin: stdin,
+      });
+    } catch (err) {
+      console.warn('Run code endpoint error:', err);
+      return {
+        status: 'Error',
+        stdout: '',
+        stderr: err.message || 'Execution error encountered.',
+        compile_output: '',
+        runtime_ms: 0,
+        memory_kb: 0,
+      };
+    }
+  },
+
+  async submitCode(problemId, language, sourceCode) {
+    try {
+      return await api.post('/practice/code/submit', {
+        problem_id: problemId,
+        language: language,
+        source_code: sourceCode,
+      });
+    } catch (err) {
+      console.warn('Submit code endpoint error:', err);
+      return {
+        status: 'Error',
+        passed_count: 0,
+        total_count: 1,
+        stdout: '',
+        stderr: err.message || 'Submission evaluation error.',
+        compile_output: '',
+        runtime_ms: 0,
+        memory_kb: 0,
+        test_results: [],
+      };
+    }
+  },
+
+  async matchQuestionIntelligence(questionId, questionText) {
+    try {
+      return await api.post('/question-intelligence/match', {
+        question_id: questionId,
+        question_text: questionText,
+      });
+    } catch (err) {
+      console.warn('Question intelligence match error:', err);
+      return {
+        matched: false,
+        similarity: 0.0,
+        companies: [],
+        best_match: null,
+        matches: [],
+      };
+    }
+  },
+
   async submitAttempt(slug, language, code) {
     try {
       return await api.post(`/practice/problems/${encodeURIComponent(slug)}/attempt`, {

@@ -18,9 +18,13 @@ import {
   Check,
   X,
   HelpCircle,
+  Building2,
+  Terminal,
+  FileCode,
+  Layers,
 } from 'lucide-react';
 
-const SKILL_OPTIONS = ['All Skills', 'Python', 'Java', 'JavaScript', 'SQL', 'DSA', 'React'];
+const SKILL_OPTIONS = ['All Skills', 'Python', 'Java', 'C', 'C++', 'JavaScript', 'SQL', 'DSA'];
 const DIFFICULTY_OPTIONS = ['All', 'Easy', 'Medium', 'Hard'];
 
 export const CodingPracticePage = () => {
@@ -35,6 +39,9 @@ export const CodingPracticePage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Question Intelligence state
+  const [matchData, setMatchData] = useState(null);
+
   // Filter States
   const [selectedSkill, setSelectedSkill] = useState('All Skills');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
@@ -43,13 +50,13 @@ export const CodingPracticePage = () => {
   // IDE / Execution States
   const [selectedLanguage, setSelectedLanguage] = useState('python');
   const [code, setCode] = useState('');
+  const [customStdin, setCustomStdin] = useState('');
   const [running, setRunning] = useState(false);
-  const [output, setOutput] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [outputTab, setOutputTab] = useState('output'); // 'output' | 'testcases' | 'stdin'
 
-  // Interactive Question Answer state (for MCQ/Conceptual items)
-  const [selectedOption, setSelectedOption] = useState(null);
-  const [answering, setAnswering] = useState(false);
-  const [answerFeedback, setAnswerFeedback] = useState(null);
+  // Real execution output object
+  const [executionResult, setExecutionResult] = useState(null);
 
   // Fetch problems on mount and when filters change
   useEffect(() => {
@@ -69,7 +76,8 @@ export const CodingPracticePage = () => {
           const target = fetched.find((p) => p.slug === requestedSlug || p.id === requestedSlug) || fetched[0] || null;
           setCurrentProblem(target);
           if (target) {
-            const initialCode = target.starterCode?.[selectedLanguage] || target.starter_code?.[selectedLanguage] || '';
+            const sc = target.starterCode || target.starter_code || {};
+            const initialCode = sc[selectedLanguage] || sc.python || '';
             setCode(initialCode);
           }
         }
@@ -83,14 +91,25 @@ export const CodingPracticePage = () => {
     return () => { isMounted = false; };
   }, [requestedSlug, selectedSkill, selectedDifficulty, selectedTopic]);
 
-  // Sync starter code
+  // Sync starter code and trigger Question Intelligence matching on problem load
   useEffect(() => {
     if (currentProblem) {
-      const newCode = currentProblem.starterCode?.[selectedLanguage] || currentProblem.starter_code?.[selectedLanguage] || '';
+      const sc = currentProblem.starterCode || currentProblem.starter_code || {};
+      const newCode = sc[selectedLanguage] || sc.python || '';
       setCode(newCode);
-      setOutput(null);
-      setSelectedOption(null);
-      setAnswerFeedback(null);
+      setExecutionResult(null);
+
+      // Trigger Question Intelligence scan against Admin-uploaded papers
+      const checkQuestionIntelligence = async () => {
+        const textToMatch = `${currentProblem.title} ${currentProblem.description}`;
+        const matchRes = await practiceService.matchQuestionIntelligence(currentProblem.id, textToMatch);
+        if (matchRes && matchRes.matched) {
+          setMatchData(matchRes);
+        } else {
+          setMatchData(null);
+        }
+      };
+      checkQuestionIntelligence();
     }
   }, [selectedLanguage, currentProblem]);
 
@@ -99,53 +118,86 @@ export const CodingPracticePage = () => {
     const target = problems.find((p) => p.slug === slug || p.id === slug);
     if (target) {
       setCurrentProblem(target);
-      setOutput(null);
-      setSelectedOption(null);
-      setAnswerFeedback(null);
+      setExecutionResult(null);
     }
   };
 
   const handleRunCode = () => {
     requireAuth(async () => {
       setRunning(true);
-      setOutput(null);
+      setExecutionResult(null);
       try {
-        if (currentProblem?.slug) {
-          await practiceService.submitAttempt(currentProblem.slug, selectedLanguage, code);
+        const res = await practiceService.runCode(
+          currentProblem?.id || currentProblem?.slug,
+          selectedLanguage,
+          code,
+          customStdin
+        );
+        setExecutionResult({
+          type: 'run',
+          status: res.status,
+          stdout: res.stdout,
+          stderr: res.stderr,
+          compile_output: res.compile_output,
+          runtime_ms: res.runtime_ms,
+          memory_kb: res.memory_kb,
+        });
+        setOutputTab('output');
+        if (res.status === 'Success') {
+          addToast('Code executed successfully!', 'success');
+        } else {
+          addToast(`Execution ended with ${res.status}`, 'warning');
         }
       } catch (e) {
-        console.warn('Attempt notice:', e);
-      }
-      setTimeout(() => {
+        addToast('Execution failed to communicate with sandbox.', 'error');
+      } finally {
         setRunning(false);
-        setOutput({
-          status: 'Accepted',
-          passed: currentProblem?.testCases?.length || 3,
-          total: currentProblem?.testCases?.length || 3,
-          runtime: '38 ms',
-          memory: '16.2 MB',
-          aiFeedback: 'Optimal linear time complexity solution verified.',
-        });
-        addToast('Test cases passed successfully!', 'success');
-      }, 650);
+      }
     }, '/practice');
   };
 
   const handleSubmit = () => {
     requireAuth(async () => {
+      setSubmitting(true);
+      setExecutionResult(null);
       try {
-        if (currentProblem?.slug) {
-          await practiceService.submitAttempt(currentProblem.slug, selectedLanguage, code);
+        const res = await practiceService.submitCode(
+          currentProblem?.id || currentProblem?.slug,
+          selectedLanguage,
+          code
+        );
+        setExecutionResult({
+          type: 'submit',
+          status: res.status,
+          passed_count: res.passed_count,
+          total_count: res.total_count,
+          stdout: res.stdout,
+          stderr: res.stderr,
+          compile_output: res.compile_output,
+          runtime_ms: res.runtime_ms,
+          memory_kb: res.memory_kb,
+          test_results: res.test_results || [],
+        });
+        setOutputTab('testcases');
+        if (res.status === 'Accepted') {
+          addToast(`Accepted! Passed ${res.passed_count}/${res.total_count} test cases.`, 'success');
+        } else {
+          addToast(`${res.status}: Passed ${res.passed_count}/${res.total_count} test cases.`, 'warning');
         }
       } catch (e) {
-        console.warn('Submission notice:', e);
+        addToast('Submission failed.', 'error');
+      } finally {
+        setSubmitting(false);
       }
-      addToast('Solution submitted to portfolio and verified.', 'success');
     }, '/practice');
   };
 
   const examples = Array.isArray(currentProblem?.examples) ? currentProblem.examples : [];
-  const testCases = Array.isArray(currentProblem?.testCases || currentProblem?.test_cases) ? (currentProblem.testCases || currentProblem.test_cases) : [];
+
+  // Determine active company tags (prioritize DB Question Intelligence matches)
+  const displayCompanies = matchData?.companies?.length > 0
+    ? matchData.companies
+    : (currentProblem?.companies || []);
 
   return (
     <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
@@ -153,7 +205,45 @@ export const CodingPracticePage = () => {
 
       <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '2rem 1.5rem 5rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0, maxWidth: '1400px', margin: '0 auto' }}>
-          
+
+          {/* Question Intelligence Match Banner Notification */}
+          {matchData && matchData.matched && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              style={{
+                backgroundColor: 'var(--color-lime-soft)',
+                border: '1px solid rgba(183, 228, 74, 0.4)',
+                borderRadius: 'var(--radius-xl)',
+                padding: '0.85rem 1.25rem',
+                marginBottom: '1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Building2 size={20} color="var(--color-forest)" />
+                <span style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-forest)' }}>
+                  Question Intelligence Match:
+                  <span style={{ fontWeight: 500, marginLeft: '6px' }}>
+                    {matchData.best_match ? (
+                      <>This question was asked in <strong>{matchData.best_match.company} {matchData.best_match.exam} ({matchData.best_match.year})</strong>.</>
+                    ) : (
+                      <>Previously asked in <strong>{matchData.exam_origin}</strong>.</>
+                    )}
+                  </span>
+                </span>
+              </div>
+              <Badge variant="lime" size="sm">
+                ✦ {Math.round((matchData.similarity || 0.90) * 100)}% Verified Match
+              </Badge>
+            </motion.div>
+          )}
+
           {/* Header & Filter Controls */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -177,11 +267,11 @@ export const CodingPracticePage = () => {
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 <span style={{ color: 'var(--color-emerald)' }}>✦</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)', letterSpacing: '0.06em' }}>
-                  Interactive Practice Arena
+                  Isolated Secure Execution Sandbox
                 </span>
               </div>
               <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-forest)', margin: 0, lineHeight: 1.1 }}>
-                Coding & Skill Practice
+                Coding & Skill Practice Arena
               </h1>
             </div>
 
@@ -332,13 +422,13 @@ export const CodingPracticePage = () => {
                   </div>
 
                   {/* Company Tagging Footer */}
-                  {currentProblem.companies && currentProblem.companies.length > 0 && (
+                  {displayCompanies.length > 0 && (
                     <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1rem' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: '6px' }}>
-                        Recently asked in drives by:
+                        {matchData?.matched ? 'Verified in corporate placement drives:' : 'Recently asked by:'}
                       </div>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        {currentProblem.companies.map((c) => (
+                        {displayCompanies.map((c) => (
                           <span key={c} className="badge badge-neutral" style={{ fontSize: '0.75rem' }}>
                             ✦ {c}
                           </span>
@@ -380,15 +470,17 @@ export const CodingPracticePage = () => {
                       >
                         <option value="python">Python 3</option>
                         <option value="java">Java 21</option>
-                        <option value="javascript">JavaScript</option>
+                        <option value="c">C (GCC)</option>
+                        <option value="cpp">C++ (G++)</option>
+                        <option value="javascript">JavaScript (Node.js)</option>
                       </select>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Button variant="lime" size="sm" onClick={handleRunCode} disabled={running}>
+                        <Button variant="lime" size="sm" onClick={handleRunCode} disabled={running || submitting}>
                           {running ? 'Running...' : 'Run Code ▶'}
                         </Button>
-                        <Button variant="primary" size="sm" onClick={handleSubmit}>
-                          Submit
+                        <Button variant="primary" size="sm" onClick={handleSubmit} disabled={running || submitting}>
+                          {submitting ? 'Evaluating...' : 'Submit'}
                         </Button>
                       </div>
                     </div>
@@ -400,7 +492,7 @@ export const CodingPracticePage = () => {
                       spellCheck={false}
                       style={{
                         width: '100%',
-                        height: '320px',
+                        height: '280px',
                         background: 'rgba(0, 0, 0, 0.25)',
                         border: '1px solid rgba(183, 228, 74, 0.15)',
                         borderRadius: 'var(--radius-lg)',
@@ -415,33 +507,194 @@ export const CodingPracticePage = () => {
                     />
                   </div>
 
-                  {/* Output Terminal */}
-                  {output && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      style={{
-                        marginTop: '1rem',
-                        background: 'rgba(244, 240, 231, 0.06)',
-                        border: '1px solid rgba(183, 228, 74, 0.25)',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '1rem',
-                        color: 'var(--color-ivory)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-lime)' }}>
-                          ✓ Test Results: {output.passed}/{output.total} Passed
-                        </span>
-                        <span style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.5)', fontFamily: 'var(--font-mono)' }}>
-                          Runtime: {output.runtime}
-                        </span>
+                  {/* Output Terminal & Test Case Results Panel */}
+                  <div style={{ marginTop: '1rem' }}>
+                    {/* Navigation Tabs */}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid rgba(244, 240, 231, 0.15)', pb: '4px' }}>
+                      <button
+                        onClick={() => setOutputTab('output')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 10px',
+                          color: outputTab === 'output' ? 'var(--color-lime)' : 'rgba(244, 240, 231, 0.6)',
+                          fontWeight: outputTab === 'output' ? 700 : 500,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          borderBottom: outputTab === 'output' ? '2px solid var(--color-lime)' : 'none',
+                        }}
+                      >
+                        Terminal Output
+                      </button>
+                      <button
+                        onClick={() => setOutputTab('testcases')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 10px',
+                          color: outputTab === 'testcases' ? 'var(--color-lime)' : 'rgba(244, 240, 231, 0.6)',
+                          fontWeight: outputTab === 'testcases' ? 700 : 500,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          borderBottom: outputTab === 'testcases' ? '2px solid var(--color-lime)' : 'none',
+                        }}
+                      >
+                        Test Cases {executionResult?.test_results ? `(${executionResult.passed_count}/${executionResult.total_count})` : ''}
+                      </button>
+                      <button
+                        onClick={() => setOutputTab('stdin')}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          padding: '4px 10px',
+                          color: outputTab === 'stdin' ? 'var(--color-lime)' : 'rgba(244, 240, 231, 0.6)',
+                          fontWeight: outputTab === 'stdin' ? 700 : 500,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          borderBottom: outputTab === 'stdin' ? '2px solid var(--color-lime)' : 'none',
+                        }}
+                      >
+                        Custom Stdin
+                      </button>
+                    </div>
+
+                    {/* Tab 1: Terminal Output */}
+                    {outputTab === 'output' && (
+                      <div
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.35)',
+                          border: '1px solid rgba(183, 228, 74, 0.2)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '0.85rem 1rem',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.8125rem',
+                          minHeight: '110px',
+                          maxHeight: '180px',
+                          overflowY: 'auto',
+                        }}
+                      >
+                        {executionResult ? (
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                              <span style={{
+                                fontWeight: 700,
+                                color: executionResult.status === 'Success' || executionResult.status === 'Accepted'
+                                  ? 'var(--color-lime)'
+                                  : '#EF4444'
+                              }}>
+                                Status: {executionResult.status}
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.5)' }}>
+                                {executionResult.runtime_ms} ms | {executionResult.memory_kb} KB
+                              </span>
+                            </div>
+
+                            {/* Compilation / Compiler Output */}
+                            {executionResult.compile_output && (
+                              <div style={{ color: '#F59E0B', whiteSpace: 'pre-wrap', marginBottom: '6px' }}>
+                                <strong>Compile Output:</strong><br />
+                                {executionResult.compile_output}
+                              </div>
+                            )}
+
+                            {/* Stderr / Runtime Error Output */}
+                            {executionResult.stderr && (
+                              <div style={{ color: '#EF4444', whiteSpace: 'pre-wrap', marginBottom: '6px' }}>
+                                <strong>Error Log (stderr):</strong><br />
+                                {executionResult.stderr}
+                              </div>
+                            )}
+
+                            {/* Stdout Output */}
+                            {executionResult.stdout ? (
+                              <div style={{ color: 'var(--color-ivory)', whiteSpace: 'pre-wrap' }}>
+                                <strong>Standard Output (stdout):</strong><br />
+                                {executionResult.stdout}
+                              </div>
+                            ) : (
+                              !executionResult.stderr && !executionResult.compile_output && (
+                                <div style={{ color: 'rgba(244, 240, 231, 0.5)' }}>[No stdout produced]</div>
+                              )
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ color: 'rgba(244, 240, 231, 0.4)', fontStyle: 'italic' }}>
+                            Click "Run Code" or "Submit" to execute solution in secure sandbox.
+                          </div>
+                        )}
                       </div>
-                      <p style={{ fontSize: '0.8rem', color: 'rgba(244, 240, 231, 0.75)', margin: 0, lineHeight: 1.5 }}>
-                        {output.aiFeedback}
-                      </p>
-                    </motion.div>
-                  )}
+                    )}
+
+                    {/* Tab 2: Test Cases */}
+                    {outputTab === 'testcases' && (
+                      <div
+                        style={{
+                          background: 'rgba(0, 0, 0, 0.35)',
+                          border: '1px solid rgba(183, 228, 74, 0.2)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '0.85rem 1rem',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.8125rem',
+                          minHeight: '110px',
+                          maxHeight: '180px',
+                          overflowY: 'auto',
+                        }}
+                      >
+                        {executionResult?.test_results && executionResult.test_results.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {executionResult.test_results.map((tr, idx) => (
+                              <div
+                                key={idx}
+                                style={{
+                                  padding: '6px 10px',
+                                  borderRadius: 'var(--radius-md)',
+                                  backgroundColor: tr.passed ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                  border: `1px solid ${tr.passed ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                                }}
+                              >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: tr.passed ? '#10B981' : '#EF4444' }}>
+                                  <span>Case {tr.case} {tr.is_hidden ? '(Hidden)' : ''}: {tr.passed ? 'PASSED ✓' : 'FAILED ✗'}</span>
+                                </div>
+                                {!tr.is_hidden && (
+                                  <div style={{ marginTop: '4px', fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.8)' }}>
+                                    <div><strong>Input:</strong> {tr.input}</div>
+                                    <div><strong>Expected:</strong> {tr.expected}</div>
+                                    <div><strong>Actual:</strong> {tr.actual}</div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ color: 'rgba(244, 240, 231, 0.4)', fontStyle: 'italic' }}>
+                            Click "Submit" to evaluate solution against all public and hidden test cases.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tab 3: Custom Stdin */}
+                    {outputTab === 'stdin' && (
+                      <textarea
+                        value={customStdin}
+                        onChange={(e) => setCustomStdin(e.target.value)}
+                        placeholder="Provide custom stdin data to feed into your program..."
+                        style={{
+                          width: '100%',
+                          height: '110px',
+                          background: 'rgba(0, 0, 0, 0.35)',
+                          border: '1px solid rgba(183, 228, 74, 0.2)',
+                          borderRadius: 'var(--radius-lg)',
+                          padding: '0.85rem 1rem',
+                          color: 'var(--color-ivory)',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '0.8125rem',
+                          outline: 'none',
+                          resize: 'none',
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
               </motion.div>
             </AnimatePresence>

@@ -36,15 +36,19 @@ export function normalizeProblem(problem) {
   const starterRaw = problem.starterCode || problem.starter_code || {};
 
   const defaultStarter = {
-    python: `# Python 3.12 solution for ${problem.title || slug}\nclass Solution:\n    def solve(self):\n        pass\n`,
-    java: `// Java 21 solution\nclass Solution {\n    public void solve() {\n    }\n}\n`,
-    javascript: `// JavaScript solution\nfunction solve() {\n}\n`,
+    python: `# Python 3 solution for ${problem.title || slug}\nimport sys\ns = sys.stdin.read().strip()\nprint(s)\n`,
+    java: `// Java 21 solution\nimport java.util.Scanner;\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        if (sc.hasNextLine()) System.out.println(sc.nextLine());\n    }\n}\n`,
+    c: `// C solution\n#include <stdio.h>\nint main() {\n    char s[1000];\n    if (fgets(s, sizeof(s), stdin)) printf("%s", s);\n    return 0;\n}\n`,
+    cpp: `// C++ solution\n#include <iostream>\n#include <string>\nusing namespace std;\nint main() {\n    string s;\n    if (getline(cin, s)) cout << s << endl;\n    return 0;\n}\n`,
+    javascript: `// JavaScript solution\nconst fs = require('fs');\nconst input = fs.readFileSync(0, 'utf-8');\nconsole.log(input.trim());\n`,
   };
 
   const starterCode = {
     python: safeString(starterRaw.python, defaultStarter.python),
     java: safeString(starterRaw.java, defaultStarter.java),
-    javascript: safeString(starterRaw.javascript, defaultStarter.javascript),
+    c: safeString(starterRaw.c, defaultStarter.c),
+    cpp: safeString(starterRaw.cpp || starterRaw['c++'], defaultStarter.cpp),
+    javascript: safeString(starterRaw.javascript || starterRaw.js, defaultStarter.javascript),
   };
 
   const rawTestCases = safeArray(problem.testCases || problem.test_cases);
@@ -374,22 +378,36 @@ export function normalizeResumeReport(data, careerFallback = 'Backend Developer'
     reason: safeString(g.reason, 'Identified in top placement screening benchmarks.'),
   }));
 
+  const companyMatches = safeArray(safeD.company_matches || safeD.companyMatches).map((c) => ({
+    company: safeString(c.company, 'Tech Corp'),
+    role: safeString(c.role, 'Software Engineer'),
+    matchPercentage: safeNumber(c.match_percentage || c.matchPercentage, 75),
+    status: safeString(c.status, 'Eligible'),
+    missingSkills: safeArray(c.missing_skills || c.missingSkills),
+    location: safeString(c.location, 'Pan India'),
+  }));
+
   const overallScore = safeNumber(safeD.overall_score || safeD.overallScore, 80);
+  const detectedSkills = safeArray(safeD.detected_skills || safeD.detectedSkills || safeD.parsed_skills || safeD.parsedSkills);
+  const strongSkills = safeArray(safeD.strong_skills || safeD.strongSkills);
+  const missingSkills = safeArray(safeD.missing_skills || safeD.missingSkills || safeD.missing_critical_skills || safeD.missingCriticalSkills);
+  const recommendations = safeArray(safeD.recommendations);
 
   return {
     overallScore: overallScore,
     headline: safeString(safeD.headline, `High ATS Compatibility for ${careerFallback} Roles`),
     recommendedPath: safeString(safeD.recommended_path || safeD.recommendedPath, careerFallback),
     extractedSnippet: safeString(safeD.extracted_text_snippet || safeD.extractedSnippet, ''),
-    strengths: strengths.length > 0 ? strengths : [
-      { skill: 'Python & Backend Architecture', reason: 'Solid API development skills.' }
-    ],
-    gaps: gaps.length > 0 ? gaps : [
-      { skill: 'System Design & Scalability', reason: 'Recommended for tier-1 recruitment rounds.' }
-    ],
+    detectedSkills: detectedSkills,
+    strongSkills: strongSkills,
+    missingSkills: missingSkills,
+    strengths: strengths,
+    gaps: gaps,
+    companyMatches: companyMatches,
+    recommendations: recommendations,
     atsCompatibility: safeString(safeD.ats_compatibility || safeD.atsCompatibility, overallScore >= 80 ? 'High' : 'Moderate'),
-    parsedSkills: safeArray(safeD.parsed_skills || safeD.parsedSkills),
-    missingCriticalSkills: safeArray(safeD.missing_critical_skills || safeD.missingCriticalSkills),
+    parsedSkills: detectedSkills,
+    missingCriticalSkills: missingSkills,
   };
 }
 
