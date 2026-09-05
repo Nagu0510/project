@@ -9,12 +9,40 @@ from typing import Dict, Any, List, Optional
 def _find_compiler(name: str) -> Optional[str]:
     return shutil.which(name)
 
+FORBIDDEN_PATTERNS = [
+    "import subprocess", "from subprocess", "import os", "from os",
+    "os.system", "os.popen", "os.exec", "shutil.rmtree", "__import__",
+    "eval(", "exec(", "require('child_process')", "import child_process",
+    "System.exit", "Runtime.getRuntime"
+]
+
+def _validate_code_security(source_code: str) -> Optional[str]:
+    """Check user submitted source code for unsafe system call patterns"""
+    lowered = source_code.lower()
+    for pattern in FORBIDDEN_PATTERNS:
+        if pattern.lower() in lowered:
+            return f"Security Restriction: Usage of '{pattern}' is not permitted in the coding sandbox."
+    return None
+
 def execute_in_sandbox(language: str, source_code: str, stdin: str = "") -> Dict[str, Any]:
     """
     Secure isolated code execution sandbox.
     Uses dedicated subprocess execution in isolated temporary file context with strict timeouts.
     Does NOT use unsafe eval() or exec() inside FastAPI.
     """
+    # 1. Pre-execution static security audit
+    security_violation = _validate_code_security(source_code)
+    if security_violation:
+        return {
+            "status": "Security Violation",
+            "stdout": "",
+            "stderr": security_violation,
+            "compile_output": "",
+            "exit_code": 1,
+            "runtime_ms": 0,
+            "memory_kb": 0
+        }
+
     lang = language.lower().strip()
     temp_dir = tempfile.mkdtemp(prefix="skillsense_sandbox_")
 

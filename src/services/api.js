@@ -25,8 +25,13 @@ class ApiClient {
     const isFormData = options.body instanceof FormData;
     const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
+    const timeoutMs = options.timeoutMs || 15000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
     const config = {
       ...options,
+      signal: options.signal || controller.signal,
       headers: {
         ...this.getHeaders(isFormData),
         ...options.headers,
@@ -35,6 +40,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, config);
+      clearTimeout(timer);
       
       // If unauthorized, clear invalid token and notify context
       if (response.status === 401) {
@@ -50,6 +56,8 @@ class ApiClient {
           const errorData = await response.json();
           if (errorData.detail) {
             errorMsg = typeof errorData.detail === 'string' ? errorData.detail : JSON.stringify(errorData.detail);
+          } else if (errorData.error && errorData.error.message) {
+            errorMsg = errorData.error.message;
           }
         } catch {
           // ignore json parse error
@@ -61,6 +69,13 @@ class ApiClient {
 
       return await response.json();
     } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') {
+        const timeoutErr = new Error(`Request timed out after ${timeoutMs / 1000}s`);
+        timeoutErr.isTimeout = true;
+        console.warn(`[SkillSense API Timeout] ${endpoint}:`, timeoutErr.message);
+        throw timeoutErr;
+      }
       if (!err.status && (err.message?.includes('fetch') || err.message?.includes('Network') || err.message?.includes('Failed') || err.name === 'TypeError')) {
         err.isNetworkError = true;
       }

@@ -60,6 +60,15 @@ async def create_indexes():
         # Practice attempts index
         await db_manager.db["practice_attempts"].create_index([("user_id", 1), ("problem_slug", 1)])
         
+        # Resumes index
+        await db_manager.db["resumes"].create_index([("user_id", 1), ("created_at", -1)])
+        
+        # Placements index
+        await db_manager.db["placements"].create_index([("company", 1), ("role", 1)])
+        
+        # Career paths index
+        await db_manager.db["career_paths"].create_index("slug", unique=True)
+        
         logger.info("MongoDB database indexes successfully verified.")
     except Exception as e:
         logger.warning(f"Index creation notice: {e}")
