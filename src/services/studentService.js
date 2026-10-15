@@ -9,6 +9,11 @@ export const studentService = {
     return await api.put('/student/profile', profileData);
   },
 
+  /** Email copies of placement alerts: off until the student turns them on (sent only to a verified address). */
+  async saveSettings(emailNotifications) {
+    return await api.put('/student/settings', { email_notifications: Boolean(emailNotifications) });
+  },
+
   async getProgress() {
     return await api.get('/student/progress');
   },

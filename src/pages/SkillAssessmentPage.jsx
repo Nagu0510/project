@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { ErrorBanner } from '../components/common/ErrorBanner';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
 import { Navbar } from '../components/common/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { PreviousQuestionPopup } from '../components/shared/PreviousQuestionPopup';
 import { PreviousQuestionModal } from '../components/shared/PreviousQuestionModal';
-import { mockAssessmentQuestions } from '../data/mockAssessmentMatches';
 import { assessmentService } from '../services/assessmentService';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
-import { normalizeAssessmentQuestionsList } from '../utils/normalizers';
+import { QuestionBody } from '../components/learning/QuestionBody';
+import { COMPANIES } from '../services/learningService';
 import {
   Clock,
   CheckCircle2,
@@ -31,8 +32,13 @@ import {
   Compass,
 } from 'lucide-react';
 
+const ACTIVE_KEY = 'skillsense.activeAssessment'; // the open session's assessment id, so a refresh reopens the same session
+const readActive = () => { try { return sessionStorage.getItem(ACTIVE_KEY); } catch { return null; } };
+const writeActive = (id) => { try { if (id) sessionStorage.setItem(ACTIVE_KEY, id); else sessionStorage.removeItem(ACTIVE_KEY); } catch { /* storage blocked: a refresh then returns to the catalog */ } };
+
 export const SkillAssessmentPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isAuthenticated, requireAuth, updateUserProfile } = useAuth();
   const { showPreviousQuestionInsights } = useSettings();
   const { addToast } = useToast();
@@ -40,6 +46,7 @@ export const SkillAssessmentPage = () => {
   // Mode: 'catalog' | 'testing' | 'practice'
   const [activeTab, setActiveTab] = useState('catalog');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
+  const [selectedCompany, setSelectedCompany] = useState('All'); // pattern-inspired practice style, practice mode only
   const [selectedSkill, setSelectedSkill] = useState('All');
 
   // Assessment Catalog
@@ -52,7 +59,13 @@ export const SkillAssessmentPage = () => {
   const [loadingTest, setLoadingTest] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState({});
-  const [timeLeft, setTimeLeft] = useState(15 * 60);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [session, setSession] = useState(null); // { sessionId, assessmentId, title, difficulty, expiresAt }
+  const [sessionProblem, setSessionProblem] = useState(null); // 'expired' | 'submitted' | 'failed'
+  const [problemText, setProblemText] = useState('');
+  const deadlineRef = useRef(0);
+  const autoSubmitRef = useRef(false);
+  const finishRef = useRef(null);
   const [dismissedPopups, setDismissedPopups] = useState({});
   const [activeModalMatch, setActiveModalMatch] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,17 +76,20 @@ export const SkillAssessmentPage = () => {
   const [practiceSelectedOpt, setPracticeSelectedOpt] = useState(null);
   const [practiceFeedback, setPracticeFeedback] = useState(null);
   const [loadingPractice, setLoadingPractice] = useState(false);
+  const [practiceError, setPracticeError] = useState('');
 
-  const careerTitle = user?.currentPath || 'Backend Developer';
+  const careerTitle = user?.currentPath || '';
+  const [loadError, setLoadError] = useState('');
 
   // Fetch Assessment Catalog
   const fetchCatalog = async () => {
     setLoadingCatalog(true);
+    setLoadError('');
     try {
       const data = await assessmentService.getAssessments(careerTitle, selectedDifficulty, selectedSkill);
       setAssessmentsList(data || []);
     } catch (err) {
-      console.warn('Error loading assessment catalog:', err);
+      setLoadError(err?.message || 'Please try again.');
     } finally {
       setLoadingCatalog(false);
     }
@@ -83,42 +99,73 @@ export const SkillAssessmentPage = () => {
     fetchCatalog();
   }, [careerTitle, selectedDifficulty, selectedSkill]);
 
-  // Timer countdown for testing
+  // Countdown to the deadline the server set (seconds_remaining at start, so the browser clock does not matter); submits itself at zero
   useEffect(() => {
-    if (activeTab !== 'testing' || timeLeft <= 0) return;
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
+    if (activeTab !== 'testing' || !session || sessionProblem) return undefined;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000));
+      setTimeLeft(left);
+      if (left === 0 && !autoSubmitRef.current) {
+        autoSubmitRef.current = true;
+        finishRef.current?.(true);
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [activeTab, timeLeft]);
+  }, [activeTab, session, sessionProblem]);
 
-  // Start specific assessment
-  const handleStartAssessment = async (asm) => {
+  // Open a session (or reopen the unexpired one: same questions, saved answers, same deadline)
+  const beginSession = async (asm) => {
     setLoadingTest(true);
     setActiveAssessment(asm);
     setActiveTab('testing');
-    setSelectedAnswers({});
+    setSessionProblem(null);
     setCurrentIndex(0);
-    setTimeLeft((asm.duration_minutes || 15) * 60);
-
+    autoSubmitRef.current = false;
     try {
-      const detail = await assessmentService.getAssessmentById(asm.id);
-      if (detail && detail.questions && detail.questions.length > 0) {
-        setQuestionsList(detail.questions);
-      } else {
-        setQuestionsList(normalizeAssessmentQuestionsList(mockAssessmentQuestions));
-      }
+      const started = await assessmentService.startSession(asm.id);
+      if (!started.questions.length) throw new Error('This assessment has no questions yet.');
+      deadlineRef.current = Date.now() + started.secondsRemaining * 1000;
+      setTimeLeft(started.secondsRemaining);
+      setSession(started);
+      setQuestionsList(started.questions);
+      setSelectedAnswers(started.answers);
+      const firstOpen = started.questions.findIndex((q) => started.answers[q.id] === undefined);
+      setCurrentIndex(firstOpen === -1 ? 0 : firstOpen); // carry on at the first unanswered question
+      writeActive(asm.id);
+      if (started.resumed) addToast('Welcome back. Your answers and the timer were restored.', 'info');
     } catch (err) {
-      console.warn('Assessment detail fetch fallback:', err);
-      setQuestionsList(normalizeAssessmentQuestionsList(mockAssessmentQuestions));
+      writeActive(null);
+      setSession(null);
+      addToast(err.message || 'Could not start this assessment. Please try again.', 'error');
+      setActiveTab('catalog');
+      setActiveAssessment(null);
     } finally {
       setLoadingTest(false);
     }
   };
 
+  const handleStartAssessment = (asm) => {
+    requireAuth(() => beginSession(asm), '/assessment'); // a timed session belongs to a signed-in student
+  };
+
+  // Come back to the open session after a refresh, or open the set a link points at (?start=asm-id)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const wanted = searchParams.get('start') || readActive();
+    if (!wanted) return;
+    if (searchParams.get('start')) setSearchParams({}, { replace: true });
+    beginSession({ id: wanted });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
+
   // Start Practice Mode
-  const handleStartPracticeMode = async () => {
+  const handleStartPracticeMode = () => requireAuth(startPracticeMode, '/assessment');
+
+  const startPracticeMode = async () => {
     setActiveTab('practice');
+    setPracticeError('');
     setLoadingPractice(true);
     setPracticeIndex(0);
     setPracticeSelectedOpt(null);
@@ -127,11 +174,14 @@ export const SkillAssessmentPage = () => {
     try {
       const questions = await assessmentService.getPracticeQuestions(
         selectedSkill !== 'All' ? selectedSkill : null,
-        selectedDifficulty !== 'All' ? selectedDifficulty : null
+        selectedDifficulty !== 'All' ? selectedDifficulty : null,
+        null,
+        selectedCompany !== 'All' ? selectedCompany : null
       );
       setPracticeQuestions(questions || []);
     } catch (err) {
-      console.warn('Practice questions error:', err);
+      setPracticeQuestions([]);
+      setPracticeError(err?.message || 'Please try again.');
     } finally {
       setLoadingPractice(false);
     }
@@ -159,43 +209,54 @@ export const SkillAssessmentPage = () => {
   const currentPracticeQ = practiceQuestions.length > 0 ? practiceQuestions[Math.min(practiceIndex, practiceQuestions.length - 1)] : null;
 
   const handleSelectOption = (optIdx) => {
-    if (!currentQ) return;
-    setSelectedAnswers((prev) => ({
-      ...prev,
-      [currentQ.id]: optIdx,
-    }));
+    if (!currentQ || !session) return;
+    const next = { ...selectedAnswers, [currentQ.id]: optIdx };
+    setSelectedAnswers(next);
+    assessmentService.saveAnswers(session.sessionId, next).catch((err) => {
+      // a network hiccup is fine (the final submit carries every answer); a finished session is not
+      if (err?.status === 410 || err?.status === 404) { setSessionProblem('expired'); setProblemText(err.message); }
+      if (err?.status === 409) { setSessionProblem('submitted'); setProblemText(err.message); }
+    });
   };
 
-  const handleFinishAssessment = async () => {
-    if (!isAuthenticated) {
-      requireAuth(() => {
-        navigate('/assessment-results');
-      }, '/assessment-results');
+  const handleFinishAssessment = async (timeIsUp = false) => {
+    if (!session) {
+      addToast('Pick an assessment to submit.', 'error');
       return;
     }
-
     setSubmitting(true);
     try {
-      const totalTime = (activeAssessment?.duration_minutes || 15) * 60;
-      const timeTaken = Math.max(10, totalTime - timeLeft);
-      const assessmentId = activeAssessment?.id || 'asm-py-med-1';
-      const result = await assessmentService.submitAssessment(assessmentId, selectedAnswers, timeTaken);
-      
-      updateUserProfile({
-        readinessScore: result.readinessScore || 85,
-        assessmentsCompleted: (user?.assessmentsCompleted || 0) + 1,
-        strongSkills: result.strengths || ['Python', 'SQL'],
-        gapSkills: result.skillGaps || ['System Design'],
-      });
-      addToast('Assessment submitted successfully! Evaluation computed.', 'success');
+      await assessmentService.submitSession(session.sessionId, session.assessmentId, selectedAnswers);
+      writeActive(null);
+      addToast(timeIsUp === true ? 'Time is up. Your answers were submitted.' : 'Assessment submitted. Your results are ready.', 'success');
       navigate('/assessment-results');
     } catch (err) {
-      console.warn('Submit error:', err.message);
-      addToast('Assessment recorded! Loading your skill score.', 'success');
-      navigate('/assessment-results');
+      // Nothing was recorded unless the server said so: never pretend a failed submit worked or show a made-up score.
+      if (err?.status === 409) {
+        writeActive(null);
+        setSessionProblem('submitted');
+        setProblemText(err.message);
+      } else if (err?.status === 410 || err?.status === 404) {
+        writeActive(null);
+        setSessionProblem('expired');
+        setProblemText(err.message);
+      } else {
+        addToast(err?.message ? `Your assessment could not be submitted: ${err.message}` : 'Your assessment could not be submitted. Please try again.', 'error');
+      }
     } finally {
       setSubmitting(false);
     }
+  };
+  finishRef.current = handleFinishAssessment;
+
+  const leaveSession = () => {
+    writeActive(null);
+    setSession(null);
+    setSessionProblem(null);
+    setQuestionsList([]);
+    setSelectedAnswers({});
+    setActiveAssessment(null);
+    setActiveTab('catalog');
   };
 
   const formatTimer = (seconds) => {
@@ -210,6 +271,7 @@ export const SkillAssessmentPage = () => {
 
       <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '2.5rem 1.5rem 5rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0, maxWidth: '1080px', margin: '0 auto' }}>
+          {loadError && <ErrorBanner title="Assessments could not be loaded." message={loadError} onRetry={fetchCatalog} />}
           
           {/* Top Page Header */}
           <div
@@ -348,14 +410,36 @@ export const SkillAssessmentPage = () => {
                     }}
                   >
                     <option value="All">All Domains</option>
+                    <option value="C">C</option>
+                    <option value="C++">C++</option>
                     <option value="Python">Python</option>
                     <option value="JavaScript">JavaScript</option>
                     <option value="React">React</option>
                     <option value="Java">Java</option>
                     <option value="SQL & Databases">SQL & Databases</option>
                     <option value="DSA">DSA / Algorithms</option>
+                    <option value="Machine Learning">Machine Learning</option>
+                    <option value="Deep Learning & AI">Deep Learning & AI</option>
                     <option value="AI / Machine Learning">AI / Machine Learning</option>
                     <option value="Cloud / DevOps">Cloud / DevOps</option>
+                  </select>
+                </div>
+
+                {/* Company style (practice mode): original questions in a company's style, not real past questions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.825rem', fontWeight: 800, color: 'var(--color-deep-forest)', textTransform: 'uppercase' }}>
+                    Practice style:
+                  </span>
+                  <select
+                    aria-label="Practice style"
+                    data-testid="practice-style"
+                    value={selectedCompany}
+                    onChange={(e) => setSelectedCompany(e.target.value)}
+                    title="Pattern-inspired practice: original questions in the style of a company's online tests. Not real past questions."
+                    style={{ padding: '6px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-medium)', backgroundColor: 'var(--color-white)', color: 'var(--color-deep-forest)', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}
+                  >
+                    <option value="All">Any style</option>
+                    {COMPANIES.map((c) => <option key={c} value={c}>{c}-style</option>)}
                   </select>
                 </div>
               </div>
@@ -440,6 +524,32 @@ export const SkillAssessmentPage = () => {
                 <div style={{ padding: '4rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)' }}>
                   <div style={{ color: 'var(--color-emerald)', fontWeight: 700, fontSize: '1.1rem' }}>✦ Initializing Timed Assessment Session...</div>
                 </div>
+              ) : sessionProblem ? (
+                <div
+                  role="alert"
+                  data-testid="session-problem"
+                  className="card-static"
+                  style={{ padding: '2.5rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-2xl)', border: '1.5px solid #FCA5A5' }}
+                >
+                  <AlertCircle size={36} color="#B91C1C" />
+                  <h2 style={{ fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: '0.75rem 0 0.5rem' }}>
+                    {sessionProblem === 'submitted' ? 'This assessment was already submitted' : 'This session has expired'}
+                  </h2>
+                  <p style={{ color: 'var(--color-charcoal-subtle)', maxWidth: '520px', margin: '0 auto 1.5rem' }}>
+                    {sessionProblem === 'submitted'
+                      ? 'Your answers were scored the first time. A session can only be submitted once.'
+                      : 'The time for this session ran out, so it could not be scored.'}
+                    {problemText ? ` (${problemText})` : ''}
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {sessionProblem === 'submitted' && (
+                      <Link to="/assessment-results"><Button variant="primary" size="md">View my results</Button></Link>
+                    )}
+                    <Button variant={sessionProblem === 'submitted' ? 'outline' : 'primary'} size="md" onClick={leaveSession}>
+                      Back to the catalog
+                    </Button>
+                  </div>
+                </div>
               ) : currentQ ? (
                 <>
                   {/* Top Bar: Progress, Navigation Pills & Timer */}
@@ -460,10 +570,10 @@ export const SkillAssessmentPage = () => {
                   >
                     <div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-muted-green)' }}>
-                        {activeAssessment?.skill || 'Engineering'} · {activeAssessment?.difficulty || 'Medium'}
+                        {activeAssessment?.skill ? `${activeAssessment.skill} · ` : ''}{session?.difficulty || activeAssessment?.difficulty || 'Medium'}
                       </div>
                       <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.2rem', color: 'var(--color-deep-forest)' }}>
-                        {activeAssessment?.title || 'Formal Diagnostic Assessment'}
+                        {session?.title || activeAssessment?.title || 'Formal Diagnostic Assessment'}
                       </div>
                     </div>
 
@@ -497,6 +607,8 @@ export const SkillAssessmentPage = () => {
 
                     {/* Timer */}
                     <div
+                      data-testid="assessment-timer"
+                      aria-live="off"
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -505,13 +617,16 @@ export const SkillAssessmentPage = () => {
                         padding: '6px 14px',
                         borderRadius: 'var(--radius-full)',
                         border: '1px solid var(--color-border-subtle)',
-                        color: 'var(--color-deep-forest)',
+                        color: timeLeft <= 60 ? '#B91C1C' : 'var(--color-deep-forest)',
                         fontWeight: 700,
                         fontSize: '0.9rem',
                       }}
                     >
-                      <Clock size={16} color="var(--color-emerald)" />
+                      <Clock size={16} color={timeLeft <= 60 ? '#B91C1C' : 'var(--color-emerald)'} />
                       <span>{formatTimer(timeLeft)}</span>
+                      <span style={{ fontWeight: 600, fontSize: '0.78rem', color: 'var(--color-charcoal-subtle)' }} data-testid="answered-count">
+                        · {Object.keys(selectedAnswers).length}/{questionsList.length} answered
+                      </span>
                     </div>
                   </div>
 
@@ -540,17 +655,16 @@ export const SkillAssessmentPage = () => {
                       </span>
                     </div>
 
-                    <h2
-                      style={{
+                    <QuestionBody
+                      question={currentQ}
+                      headingStyle={{
                         fontFamily: 'var(--font-serif)',
                         fontSize: 'clamp(1.2rem, 2.5vw, 1.5rem)',
                         color: 'var(--color-deep-forest)',
                         lineHeight: 1.4,
                         marginBottom: '1.75rem',
                       }}
-                    >
-                      {currentQ.questionText}
-                    </h2>
+                    />
 
                     {/* Options List */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '2rem' }}>
@@ -561,7 +675,7 @@ export const SkillAssessmentPage = () => {
                         return (
                           <button
                             key={optIdx}
-                            onClick={() => handleSelectOption(optIdx)}
+                            data-testid="assessment-option" onClick={() => handleSelectOption(optIdx)}
                             style={{
                               display: 'flex',
                               alignItems: 'center',
@@ -596,7 +710,7 @@ export const SkillAssessmentPage = () => {
                             >
                               {String.fromCharCode(65 + optIdx)}
                             </span>
-                            <span>{optText}</span>
+                            <span style={{ whiteSpace: "pre-wrap" }}>{optText}</span>
                           </button>
                         );
                       })}
@@ -629,11 +743,12 @@ export const SkillAssessmentPage = () => {
                           variant="lime"
                           size="md"
                           loading={submitting}
-                          onClick={handleFinishAssessment}
+                          onClick={() => handleFinishAssessment()}
                           icon={ArrowRight}
                           iconPosition="right"
+                          data-testid="submit-assessment"
                         >
-                          {isAuthenticated ? 'Submit Assessment' : 'Finish Preview & Get Analysis →'}
+                          Submit Assessment
                         </Button>
                       )}
                     </div>
@@ -669,6 +784,8 @@ export const SkillAssessmentPage = () => {
                 <div style={{ padding: '4rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)' }}>
                   <div style={{ color: 'var(--color-emerald)', fontWeight: 700 }}>✦ Preparing Practice Question Stream...</div>
                 </div>
+              ) : practiceError ? (
+                <ErrorBanner title="Practice questions could not be loaded." message={practiceError} onRetry={startPracticeMode} />
               ) : currentPracticeQ ? (
                 <div
                   className="card-static"
@@ -696,17 +813,16 @@ export const SkillAssessmentPage = () => {
                     </button>
                   </div>
 
-                  <h2
-                    style={{
+                  <QuestionBody
+                    question={currentPracticeQ}
+                    headingStyle={{
                       fontFamily: 'var(--font-serif)',
                       fontSize: 'clamp(1.2rem, 2.5vw, 1.5rem)',
                       color: 'var(--color-deep-forest)',
                       lineHeight: 1.4,
                       marginBottom: '1.75rem',
                     }}
-                  >
-                    {currentPracticeQ.questionText}
-                  </h2>
+                  />
 
                   {/* Options */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.5rem' }}>
@@ -767,7 +883,7 @@ export const SkillAssessmentPage = () => {
                           >
                             {isCorrectAnswer ? <Check size={14} /> : isWrongSelection ? <X size={14} /> : String.fromCharCode(65 + optIdx)}
                           </span>
-                          <span>{typeof opt === 'string' ? opt : opt?.text}</span>
+                          <span style={{ whiteSpace: 'pre-wrap' }}>{typeof opt === 'string' ? opt : opt?.text}</span>
                         </button>
                       );
                     })}
@@ -850,7 +966,11 @@ export const SkillAssessmentPage = () => {
                     )}
                   </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="card-static" style={{ padding: '2rem', textAlign: 'center', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', color: 'var(--color-deep-forest)' }}>
+                  No practice questions match these filters. Change the domain, difficulty or practice style and try again.
+                </div>
+              )}
             </div>
           )}
         </div>

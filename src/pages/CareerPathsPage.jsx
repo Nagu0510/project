@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { ErrorBanner } from '../components/common/ErrorBanner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, Sparkles, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
 import { Sidebar } from '../components/common/Sidebar';
@@ -23,14 +24,17 @@ export const CareerPathsPage = () => {
 
   const [careerPaths, setCareerPaths] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('All Domains');
-  const [selectedTrackId, setSelectedTrackId] = useState(user?.currentPath || 'backend');
+  const [selectedTrackId, setSelectedTrackId] = useState(user?.currentPath || '');
 
   useEffect(() => {
     let isMounted = true;
     const fetchPaths = async () => {
       setLoading(true);
+      setLoadError('');
       try {
         const paths = await careerService.getCareerPaths();
         if (isMounted && Array.isArray(paths) && paths.length > 0) {
@@ -43,7 +47,7 @@ export const CareerPathsPage = () => {
           }
         }
       } catch (err) {
-        console.warn('[CareerPaths] Service fallback:', err);
+        if (isMounted) setLoadError(err?.message || 'Please try again.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -52,7 +56,7 @@ export const CareerPathsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [user?.currentPath]);
+  }, [user?.currentPath, reloadKey]);
 
   // Filter paths by search query and domain
   const filteredPaths = useMemo(() => {
@@ -112,7 +116,7 @@ export const CareerPathsPage = () => {
     });
   };
 
-  const userSkills = user?.strongSkills || user?.skills || ['Python', 'SQL', 'Git'];
+  const userSkills = user?.strongSkills || user?.skills || [];
 
   return (
     <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
@@ -120,6 +124,7 @@ export const CareerPathsPage = () => {
 
       <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '3rem 1.5rem 6rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0, maxWidth: '1280px', margin: '0 auto' }}>
+          {loadError && <ErrorBanner title="Career paths could not be loaded." message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />}
           
           {/* Header Section */}
           <motion.div

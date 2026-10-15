@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ErrorBanner } from '../../components/common/ErrorBanner';
 import { useSearchParams } from 'react-router-dom';
 import { AdminSidebar } from '../../components/admin/AdminSidebar';
 import { Button } from '../../components/common/Button';
@@ -6,11 +7,18 @@ import { Badge } from '../../components/common/Badge';
 import { QuestionPaperUpload } from '../../components/shared/QuestionPaperUpload';
 import { QuestionPaperTable } from '../../components/shared/QuestionPaperTable';
 import { QuestionReviewCard } from '../../components/shared/QuestionReviewCard';
-import {
-  initialMockPapers,
-  initialMockExtractedQuestions,
-  mockQuestionPaperStats,
-} from '../../data/mockQuestionPapers';
+import { EmptyState } from '../../components/common/EmptyState';
+import { adminService } from '../../services/adminService';
+
+const STATUS_LABELS = { needs_review: 'Needs Review', approved: 'Approved', published: 'Published', rejected: 'Rejected' };
+const toTablePaper = (p) => ({ ...p, type: p.paper_type || '', questions: p.questions_count ?? 0 });
+const toCardQuestion = (q, i) => ({
+  ...q,
+  number: i + 1,
+  title: q.question_text,
+  type: q.question_type || '',
+  status: STATUS_LABELS[q.status] || q.status,
+});
 import { useToast } from '../../context/ToastContext';
 import {
   FileSpreadsheet,
@@ -29,12 +37,59 @@ export const AdminQuestionPapersPage = () => {
 
   const { addToast } = useToast();
   const [activeTab, setActiveTab] = useState(initialTab); // 'papers' | 'upload' | 'review'
-  const [papers, setPapers] = useState(initialMockPapers);
-  const [questions, setQuestions] = useState(initialMockExtractedQuestions);
+  const [papers, setPapers] = useState([]);
+  const [questions, setQuestions] = useState([]);
   const [selectedPaperForReview, setSelectedPaperForReview] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 100;
 
-  const handleUploadComplete = (newPaper) => {
-    setPapers((prev) => [newPaper, ...prev]);
+  const fetchAdminData = async () => {
+    setLoading(true);
+    try {
+      const [fetchedPapers, fetchedQuestions, dashboard] = await Promise.all([
+        adminService.getQuestionPapers(),
+        adminService.getExtractedQuestions(null, { page: 1, pageSize: PAGE_SIZE }),
+        adminService.getDashboard(),
+      ]);
+      const rows = Array.isArray(fetchedQuestions) ? fetchedQuestions : [];
+      setPapers((Array.isArray(fetchedPapers) ? fetchedPapers : []).map(toTablePaper));
+      setQuestions(rows);
+      setPage(1);
+      setHasMore(rows.length === PAGE_SIZE);
+      setTotalQuestions(dashboard?.extracted_questions_count ?? rows.length);
+      setLoadError('');
+    } catch (err) {
+      setLoadError(err?.message || 'Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchAdminData();
+  }, []);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const rows = await adminService.getExtractedQuestions(null, { page: page + 1, pageSize: PAGE_SIZE });
+      setQuestions((prev) => [...prev, ...(Array.isArray(rows) ? rows : [])]);
+      setPage(page + 1);
+      setHasMore(Array.isArray(rows) && rows.length === PAGE_SIZE);
+    } catch (err) {
+      addToast(err?.message || 'Could not load more questions.', 'error');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleUploadComplete = async () => {
+    await fetchAdminData();
     setActiveTab('review');
   };
 
@@ -43,30 +98,41 @@ export const AdminQuestionPapersPage = () => {
     setActiveTab('review');
   };
 
-  const handleEditPaper = (paper) => {
-    addToast(`Editing parameters for ${paper.company} ${paper.exam}`, 'info');
+  const handleApproveQuestion = async (qId) => {
+    try {
+      await adminService.updateQuestionStatus(qId, 'approved');
+      setQuestions((prev) => prev.map((q) => (q.id === qId ? { ...q, status: 'approved' } : q)));
+      addToast('Question approved and added to the student question bank.', 'success');
+    } catch (err) {
+      addToast(err?.message || 'Could not approve the question.', 'error');
+      throw err; // the card keeps its "Needs Review" state
+    }
   };
 
-  const handleDeletePaper = (paperId) => {
-    setPapers((prev) => prev.filter((p) => p.id !== paperId));
-    addToast('Question paper removed from index.', 'info');
+  const handleRejectQuestion = async (qId) => {
+    try {
+      await adminService.updateQuestionStatus(qId, 'rejected');
+      setQuestions((prev) => prev.map((q) => (q.id === qId ? { ...q, status: 'rejected' } : q)));
+      addToast('Question rejected. Students will not see it.', 'info');
+    } catch (err) {
+      addToast(err?.message || 'Could not reject the question.', 'error');
+      throw err;
+    }
   };
 
-  const handleApproveQuestion = (qId) => {
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === qId ? { ...q, status: 'Approved' } : q))
-    );
+  const handleDeleteQuestion = async (qId) => {
+    try {
+      await adminService.deleteQuestion(qId);
+      setQuestions((prev) => prev.filter((q) => q.id !== qId));
+      addToast('Question deleted.', 'info');
+    } catch (err) {
+      addToast(err?.message || 'Could not delete the question.', 'error');
+    }
   };
 
-  const handleEditQuestion = (qId, newTitle) => {
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === qId ? { ...q, title: newTitle } : q))
-    );
-  };
-
-  const handleDeleteQuestion = (qId) => {
-    setQuestions((prev) => prev.filter((q) => q.id !== qId));
-  };
+  const reviewQuestions = (selectedPaperForReview ? questions.filter((q) => q.paper_id === selectedPaperForReview.id) : questions).map(toCardQuestion);
+  const companiesCount = new Set(papers.map((p) => p.company).filter(Boolean)).size;
+  const repeatedCount = questions.filter((q) => (q.appearances_count || 1) > 1).length;
 
   return (
     <div className="dashboard-layout">
@@ -74,6 +140,7 @@ export const AdminQuestionPapersPage = () => {
 
       <main className="dashboard-main">
         <div className="dashboard-content animate-fade-in">
+          {loadError && <ErrorBanner title="Question papers could not be loaded." message={loadError} onRetry={fetchAdminData} />}
           {/* Top Page Header */}
           <div
             style={{
@@ -128,7 +195,7 @@ export const AdminQuestionPapersPage = () => {
                 size="sm"
                 onClick={() => setActiveTab('review')}
               >
-                Review Extracted ({questions.length})
+                Review Extracted ({totalQuestions})
               </Button>
             </div>
           </div>
@@ -155,13 +222,13 @@ export const AdminQuestionPapersPage = () => {
               }}
             >
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-deep-forest)', lineHeight: 1 }}>
-                46
+                {papers.length}
               </div>
               <div style={{ fontSize: '0.885rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
                 Question Papers
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                Verified archival drives
+                Uploaded and indexed
               </div>
             </div>
 
@@ -176,13 +243,13 @@ export const AdminQuestionPapersPage = () => {
               }}
             >
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-emerald)', lineHeight: 1 }}>
-                2,840
+                {totalQuestions}
               </div>
               <div style={{ fontSize: '0.885rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
                 Questions Extracted
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                Clean semantic vectors
+                Extracted from the papers
               </div>
             </div>
 
@@ -197,13 +264,13 @@ export const AdminQuestionPapersPage = () => {
               }}
             >
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-deep-forest)', lineHeight: 1 }}>
-                18
+                {companiesCount}
               </div>
               <div style={{ fontSize: '0.885rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
                 Companies
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                TCS, Infosys, Accenture & more
+                With at least one paper
               </div>
             </div>
 
@@ -218,13 +285,13 @@ export const AdminQuestionPapersPage = () => {
               }}
             >
               <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-dark-emerald)', lineHeight: 1 }}>
-                367
+                {repeatedCount}
               </div>
               <div style={{ fontSize: '0.885rem', fontWeight: 600, color: 'var(--color-charcoal-subtle)', marginTop: '6px' }}>
                 Repeated Questions
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                Cross-company matches
+                Seen more than once
               </div>
             </div>
           </div>
@@ -240,12 +307,13 @@ export const AdminQuestionPapersPage = () => {
                 </h3>
               </div>
 
-              <QuestionPaperTable
-                papers={papers}
-                onViewPaper={handleViewPaper}
-                onEditPaper={handleEditPaper}
-                onDeletePaper={handleDeletePaper}
-              />
+              {loadError && (
+                <EmptyState title="Papers could not be loaded" description="Refresh the page to try again." />
+              )}
+              {!loadError && !loading && papers.length === 0 && (
+                <EmptyState title="No question papers yet" description="Upload your first paper to extract its questions." actionText="Upload a paper" onAction={() => setActiveTab('upload')} />
+              )}
+              {papers.length > 0 && <QuestionPaperTable papers={papers} onViewPaper={handleViewPaper} />}
             </div>
           )}
 
@@ -277,21 +345,34 @@ export const AdminQuestionPapersPage = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <Badge variant="warning">Needs Review: {questions.filter((q) => q.status === 'Needs Review').length}</Badge>
-                  <Badge variant="success">Approved: {questions.filter((q) => q.status === 'Approved').length}</Badge>
+                  <Badge variant="warning">Needs Review: {questions.filter((q) => q.status === 'needs_review').length}</Badge>
+                  <Badge variant="success">Approved: {questions.filter((q) => q.status === 'approved' || q.status === 'published').length}</Badge>
                 </div>
               </div>
 
+              {selectedPaperForReview && (selectedPaperForReview.warnings || []).length > 0 && (
+                <div role="note" data-testid="paper-warnings" style={{ marginBottom: '1rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', background: '#FFFBEB', color: '#92400E', fontSize: '0.85rem' }}>
+                  {selectedPaperForReview.warnings.join(' ')}
+                </div>
+              )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {questions.map((q) => (
+                {!loading && reviewQuestions.length === 0 && (
+                  <EmptyState title="Nothing to review" description="Questions extracted from uploaded papers appear here for approval." />
+                )}
+                {reviewQuestions.map((q) => (
                   <QuestionReviewCard
                     key={q.id}
                     question={q}
                     onApprove={handleApproveQuestion}
-                    onEdit={handleEditQuestion}
+                    onReject={handleRejectQuestion}
                     onDelete={handleDeleteQuestion}
                   />
                 ))}
+                {hasMore && (
+                  <Button variant="outline" size="md" onClick={loadMore} disabled={loadingMore} data-testid="load-more">
+                    {loadingMore ? 'Loading...' : `Load more (showing ${questions.length} of ${totalQuestions})`}
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -300,3 +381,5 @@ export const AdminQuestionPapersPage = () => {
     </div>
   );
 };
+
+export default AdminQuestionPapersPage;

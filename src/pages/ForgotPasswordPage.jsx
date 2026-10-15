@@ -4,6 +4,7 @@ import { Mail, ArrowLeft, CheckCircle2, Sparkles } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { useToast } from '../context/ToastContext';
+import { authService } from '../services/authService';
 
 export const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export const ForgotPasswordPage = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
       addToast('Please provide a valid email address', 'error');
@@ -20,11 +21,14 @@ export const ForgotPasswordPage = () => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.forgotPassword(email.trim());
       setSubmitted(true);
-      addToast(`Password recovery link sent to ${email}`, 'success');
-    }, 600);
+    } catch (err) {
+      addToast(err?.message || 'Could not start password recovery. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -186,7 +190,7 @@ export const ForgotPasswordPage = () => {
                 lineHeight: 1.5,
               }}
             >
-              We sent password reset instructions to <strong>{email}</strong>. Please follow the instructions in the email.
+              If an account exists for <strong>{email}</strong>, a password reset link has been sent. The link expires in 30 minutes.
             </p>
 
             <Link to="/login" style={{ display: 'block', width: '100%' }}>
@@ -200,3 +204,5 @@ export const ForgotPasswordPage = () => {
     </div>
   );
 };
+
+export default ForgotPasswordPage;

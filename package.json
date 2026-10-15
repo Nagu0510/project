@@ -5,10 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "backend": "python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
-    "backend:win": ".\\backend\\python_bin\\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
+    "backend:check": "cd backend && .\\.venv\\Scripts\\python.exe -m app.startup_check",
+    "backend": ".\\backend\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
+    "backend:win": ".\\backend\\.venv\\Scripts\\python.exe -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "e2e:p3": "playwright test -c e2e/playwright.config.js p3.spec.js",
+    "e2e:practice": "playwright test -c e2e/playwright.config.js practice-subprocess",
+    "e2e:p3b": "playwright test -c e2e/playwright.config.js p3b-online",
+    "test:ui": "playwright test -c e2e/playwright.config.js ui-audit"
   },
   "dependencies": {
     "@react-three/drei": "^9.121.5",
@@ -24,6 +29,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^6.0.1"
   }

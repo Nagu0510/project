@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/common/Navbar';
+import { GoogleAuth } from '../components/common/GoogleAuth';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // a new page visit never starts with the previous attempt's error
+  useEffect(() => { setError(''); }, [location.key]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,6 +32,16 @@ export const LoginPage = () => {
       setError(err?.message || 'Login failed. Please check your credentials.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogle = async (credential) => {
+    setError('');
+    try {
+      const result = await googleLogin(credential);
+      if (result?.success) navigate('/dashboard');
+    } catch (err) {
+      setError(err?.message || 'Google sign-in failed. Please try again.');
     }
   };
 
@@ -92,10 +107,11 @@ export const LoginPage = () => {
               </button>
             </form>
 
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-ivory)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-subtle)' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.375rem', fontWeight: 600 }}>Demo Credentials</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)' }}>nagappa@skillsense.ai / password123</p>
-            </div>
+            <GoogleAuth text="signin_with" onCredential={handleGoogle} onError={setError} />
+
+            <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.85rem' }}>
+              <Link to="/forgot-password" style={{ color: 'var(--color-emerald)', fontWeight: 600 }}>Forgot your password?</Link>
+            </p>
 
             <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
               Admin? <Link to="/admin/login" style={{ color: 'var(--color-emerald)', fontWeight: 600 }}>Admin login →</Link>

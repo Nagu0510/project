@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
+from app.utils.timeutil import utcnow
+
 class TestCase(BaseModel):
     input: str
     expected_output: str
@@ -23,13 +25,11 @@ class CodingProblem(BaseModel):
     category: str
     topic: str
     description: str
-    starter_code: Dict[str, str] = {
-        "python": "# Python 3 Solution\nprint('Hello World')\n",
-        "java": "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello World\");\n    }\n}\n",
-        "c": "#include <stdio.h>\n\nint main() {\n    printf(\"Hello World\\n\");\n    return 0;\n}\n",
-        "cpp": "#include <iostream>\nusing namespace std;\n\nint main() {\n    cout << \"Hello World\" << endl;\n    return 0;\n}\n",
-        "javascript": "// JavaScript Solution\nconsole.log('Hello World');\n",
-    }
+    input_format: str = ""
+    output_format: str = ""
+    constraints: List[str] = []
+    tags: List[str] = []
+    starter_code: Dict[str, str] = {}
     sample_test_cases: List[TestCase] = []
     hidden_test_cases: List[TestCase] = []
     test_cases: List[TestCase] = []
@@ -49,7 +49,10 @@ class PracticeAttempt(BaseModel):
     code: str
     execution_available: bool = True
     message: str = "Code execution snapshot recorded."
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    is_correct: bool = False
+    verdict: str = ""  # Accepted | Wrong Answer | Runtime Error | Time Limit Exceeded | Compile Error
+    runtime_ms: Optional[int] = None
+    timestamp: datetime = Field(default_factory=utcnow)
 
     class Config:
         extra = "ignore"
@@ -67,7 +70,7 @@ class CodeRunResponse(BaseModel):
     stderr: str
     compile_output: Optional[str] = ""
     runtime_ms: int = 0
-    memory_kb: int = 0
+    memory_kb: Optional[int] = None  # not measured
 
 class CodeSubmitRequest(BaseModel):
     problem_id: Optional[str] = None
@@ -76,12 +79,14 @@ class CodeSubmitRequest(BaseModel):
     source_code: str
 
 class CodeSubmitResponse(BaseModel):
-    status: str  # 'Accepted' | 'Wrong Answer' | 'Compile Error' | 'Runtime Error'
+    status: str  # Accepted | Wrong Answer | Runtime Error | Time Limit Exceeded | Compile Error | Judge unavailable
     passed_count: int
     total_count: int
     stdout: str
     stderr: str
     compile_output: Optional[str] = ""
     runtime_ms: int = 0
-    memory_kb: int = 0
+    memory_kb: Optional[int] = None  # not measured
     test_results: List[Dict[str, Any]] = []
+    failed_case: Optional[int] = None  # 1-based number of the first failing test case
+    message: str = ""

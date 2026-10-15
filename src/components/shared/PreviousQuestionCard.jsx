@@ -11,24 +11,24 @@ export const PreviousQuestionCard = ({ question = {}, className = '' }) => {
 
   const {
     title = 'Placement Question',
-    problemSlug = "two-sum",
-    examOrigin = 'Placement Drive',
-    topic = 'Data Structures',
-    difficulty = 'Medium',
-    appearances = 1,
+    problemSlug = '',
+    examOrigin = '',
+    topic = '',
+    difficulty = '',
+    appearances = 0,
     companies = [],
-    badge = "Frequently Asked",
-    badgeType = "lime",
+    badge = '',
+    badgeType = 'lime',
     description = '',
-    similarity = 94,
+    similarity = 0,
     historicalOccurrences = [],
   } = question || {};
 
-  const safeCompanies = Array.isArray(companies) ? companies : companies ? [companies] : ['TCS'];
+  const safeCompanies = Array.isArray(companies) ? companies : companies ? [companies] : [];
   const safeOccurrences = Array.isArray(historicalOccurrences) ? historicalOccurrences : [];
 
   const matchData = {
-    company: safeCompanies[0] || "TCS",
+    company: safeCompanies[0] || "",
     exam: examOrigin,
     topic,
     difficulty,
@@ -55,12 +55,16 @@ export const PreviousQuestionCard = ({ question = {}, className = '' }) => {
           {/* Top Badges */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.85rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Badge variant={badgeType === 'lime' ? 'lime' : badgeType === 'emerald' ? 'emerald' : 'forest'}>
-                {badge}
-              </Badge>
-              <Badge variant={difficulty === 'Hard' ? 'error' : difficulty === 'Medium' ? 'warning' : 'success'}>
-                {difficulty}
-              </Badge>
+              {badge && (
+                <Badge variant={badgeType === 'lime' ? 'lime' : badgeType === 'emerald' ? 'emerald' : 'forest'}>
+                  {badge}
+                </Badge>
+              )}
+              {difficulty && (
+                <Badge variant={difficulty === 'Hard' ? 'error' : difficulty === 'Medium' ? 'warning' : 'success'}>
+                  {difficulty}
+                </Badge>
+              )}
             </div>
 
             <span style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -150,7 +154,7 @@ export const PreviousQuestionCard = ({ question = {}, className = '' }) => {
             Intelligence
           </Button>
 
-          <Link to={`/practice?problem=${problemSlug}`}>
+          <Link to={problemSlug ? `/practice?problem=${problemSlug}` : '/practice'}>
             <Button variant="lime" size="sm" icon={ArrowRight} iconPosition="right">
               Practice Question
             </Button>

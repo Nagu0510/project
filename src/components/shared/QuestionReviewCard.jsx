@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Edit, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Check, Edit, Trash2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { useToast } from '../../context/ToastContext';
@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 export const QuestionReviewCard = ({
   question,
   onApprove,
+  onReject,
   onEdit,
   onDelete,
   className = '',
@@ -16,10 +17,22 @@ export const QuestionReviewCard = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(question.title);
 
-  const handleApprove = () => {
-    setCurrentStatus('Approved');
-    addToast(`Question #${question.number} approved!`, 'success');
-    if (onApprove) onApprove(question.id);
+  const handleApprove = async () => {
+    try {
+      if (onApprove) await onApprove(question.id);
+      setCurrentStatus('Approved');
+    } catch {
+      // the page already told the admin why; the card stays in its current state
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      if (onReject) await onReject(question.id);
+      setCurrentStatus('Rejected');
+    } catch {
+      // the page already told the admin why
+    }
   };
 
   const handleSaveEdit = () => {
@@ -30,6 +43,8 @@ export const QuestionReviewCard = ({
 
   return (
     <div
+      data-testid="review-card"
+      data-status={currentStatus}
       className={`card-floating ${className}`}
       style={{
         padding: '1.5rem',
@@ -61,6 +76,16 @@ export const QuestionReviewCard = ({
 
         <Badge variant={currentStatus}>{currentStatus}</Badge>
       </div>
+
+      {question.low_confidence && (
+        <div
+          role="note"
+          data-testid="low-confidence"
+          style={{ marginBottom: '0.85rem', padding: '6px 10px', borderRadius: 'var(--radius-md)', background: '#FFFBEB', color: '#92400E', fontSize: '0.8rem', fontWeight: 600 }}
+        >
+          Read from a scan with low OCR confidence ({question.ocr_confidence}%). Check the wording against the original before approving.
+        </div>
+      )}
 
       {/* Question Title / Edit Input */}
       {isEditing ? (
@@ -167,7 +192,7 @@ export const QuestionReviewCard = ({
           gap: '0.5rem',
         }}
       >
-        {currentStatus !== 'Approved' && (
+        {currentStatus !== 'Approved' && currentStatus !== 'Published' && onApprove && (
           <Button
             variant="lime"
             size="sm"
@@ -177,26 +202,21 @@ export const QuestionReviewCard = ({
             Approve
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsEditing(!isEditing)}
-          icon={Edit}
-        >
-          Edit
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            if (onDelete) onDelete(question.id);
-            addToast(`Question #${question.number} deleted.`, 'info');
-          }}
-          icon={Trash2}
-          style={{ color: 'var(--color-error)' }}
-        >
-          Delete
-        </Button>
+        {currentStatus !== 'Rejected' && onReject && (
+          <Button variant="outline" size="sm" onClick={handleReject} icon={X}>
+            Reject
+          </Button>
+        )}
+        {onEdit && (
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} icon={Edit}>
+            Edit
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="ghost" size="sm" onClick={() => onDelete(question.id)} icon={Trash2} style={{ color: 'var(--color-error)' }}>
+            Delete
+          </Button>
+        )}
       </div>
     </div>
   );

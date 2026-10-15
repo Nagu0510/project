@@ -1,17 +1,9 @@
 import { api } from './api';
-import { mockCareerPaths } from '../data/mockCareerPaths';
 import { normalizeCareerPathList } from '../utils/normalizers';
 
 export const careerService = {
   async getCareerPaths() {
-    try {
-      const data = await api.get('/career-paths');
-      const normalized = normalizeCareerPathList(data);
-      if (normalized.length > 0) return normalized;
-      return normalizeCareerPathList(mockCareerPaths);
-    } catch {
-      return normalizeCareerPathList(mockCareerPaths);
-    }
+    return normalizeCareerPathList(await api.get('/career-paths')); // a failure reaches the page, which shows an error banner with a retry
   },
 
   async selectCareerPath(careerPathId, careerPathTitle) {

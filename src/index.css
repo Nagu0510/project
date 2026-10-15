@@ -1,10 +1,4 @@
-﻿/* ==========================================================================
-   SkillSense AI - Premium Design System
-   Inspired by Squarespace editorial aesthetics
-   Brand: Forest Green + Warm Ivory + Fresh Lime
-   ========================================================================== */
-
-:root {
+﻿:root {
   /* ===== BRAND COLORS ===== */
   --color-ivory: #F4F0E7;
   --color-ivory-soft: #FAF9F6;
@@ -67,7 +61,7 @@
   --shadow-glow-lime: 0 0 32px -4px rgba(183, 228, 74, 0.5);
   --shadow-glow-emerald: 0 0 32px -6px rgba(31, 107, 80, 0.35);
 
-  /* ===== RADIUS ===== */
+  /* ===== RADIUS ===== */  
   --radius-xs: 3px;
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -79,6 +73,7 @@
   /* ===== LAYOUT ===== */
   --sidebar-width: 264px;
   --header-height: 68px;
+  --mobile-topbar-height: 56px;
   --content-max: 1280px;
 
   /* ===== TRANSITIONS ===== */
@@ -147,15 +142,49 @@ img, video { max-width: 100%; display: block; }
 .section-xl { padding-block: 8rem; }
 .section-sm { padding-block: 3rem; }
 
-.dashboard-layout { display: flex; min-height: 100vh; background-color: var(--color-ivory); }
-.dashboard-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.dashboard-content { flex: 1; padding: 2rem; max-width: 1380px; width: 100%; margin: 0 auto; }
+/* ===== APP SHELL (student + admin) =====
+   ONE layout breakpoint: 768px (also src/utils/layout.js).
+   Above 768px: fixed 264px sidebar + content with margin-left; there is no mobile header in the DOM.
+   768px and below: fixed top bar, off-canvas sidebar with a backdrop, content has no left margin. */
+.dashboard-layout { min-height: 100vh; background-color: var(--color-ivory); }
+.dashboard-main { margin-left: var(--sidebar-width); min-width: 0; min-height: 100vh; display: flex; flex-direction: column; }
+.dashboard-content { flex: 1; padding: 2rem; max-width: 1380px; width: 100%; margin: 0 auto; min-width: 0; }
+
+.app-sidebar {
+  position: fixed; top: var(--banner-height, 0px); bottom: 0; left: 0; width: var(--sidebar-width); z-index: 100;
+  display: flex; flex-direction: column; overflow: hidden;
+  background-color: var(--color-white); border-right: 1px solid var(--color-border-subtle);
+}
+.mobile-topbar {
+  position: fixed; top: var(--banner-height, 0px); left: 0; right: 0; height: var(--mobile-topbar-height); z-index: 90;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 1rem;
+  background-color: var(--color-white); border-bottom: 1px solid var(--color-border-subtle);
+}
+.mobile-topbar-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mobile-topbar-logo {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0;
+  border-radius: 6px; background-color: var(--color-deep-forest); color: var(--color-lime); font-size: 1rem;
+}
+.mobile-topbar-title { font-family: var(--font-serif); font-size: 1.25rem; color: var(--color-deep-forest); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mobile-topbar-toggle { background: none; border: none; color: var(--color-deep-forest); cursor: pointer; padding: 8px; margin-right: -8px; display: flex; }
+.sidebar-backdrop { position: fixed; inset: 0; background-color: rgba(6, 46, 37, 0.45); z-index: 105; }
 
 @media (max-width: 768px) {
+  .dashboard-main { margin-left: 0; padding-top: var(--mobile-topbar-height); }
   .dashboard-content { padding: 1.25rem 1rem; }
+  .app-sidebar {
+    z-index: 110; max-width: 85vw; box-shadow: var(--shadow-xl);
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform 0.25s ease, visibility 0s linear 0.25s;
+  }
+  .app-sidebar.open { transform: translateX(0); visibility: visible; transition: transform 0.25s ease; }
   .section { padding-block: 3.5rem; }
   .section-xl { padding-block: 5rem; }
 }
+
+.section { padding-block: 5rem; }
+.section-xl { padding-block: 8rem; }
+.section-sm { padding-block: 3rem; }
 
 .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
@@ -442,3 +471,55 @@ img, video { max-width: 100%; display: block; }
 
 /* SELECTION */
 ::selection { background: var(--color-lime-soft); color: var(--color-forest); }
+
+/* =========================================================================
+   NATIVE CONTROLS (select option lists, date pickers, file buttons)
+   The browser draws an open <select> list itself, on its own background. If the select sets light text and a
+   transparent background (as in the dark editor panel), the options inherit the light text and land on white,
+   so they cannot be read. Every option therefore gets an explicit color AND background-color here, once, for the
+   whole app. Light surfaces use dark text on white; anything inside a .dark-panel uses light text on dark green.
+   ========================================================================= */
+:root { color-scheme: light; }
+select, input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[type="week"], input[type="file"] { color-scheme: light; }
+.dark-panel select, .dark-panel input[type="date"], .dark-panel input[type="time"], .dark-panel input[type="file"] { color-scheme: dark; }
+
+select option, select optgroup, datalist option {
+  background-color: #FFFFFF;
+  color: var(--color-charcoal);
+}
+select option:checked, select option:hover, select option:focus {
+  background-color: var(--color-lime-soft);
+  color: var(--color-forest);
+}
+select option:disabled, select optgroup:disabled, datalist option:disabled {
+  color: #5E655F;               /* visibly dimmed, still above 4.5:1 on white */
+  background-color: #FFFFFF;
+}
+
+.dark-panel select option, .dark-panel select optgroup, .dark-panel datalist option {
+  background-color: var(--color-forest-deep);
+  color: var(--color-ivory);
+}
+.dark-panel select option:checked, .dark-panel select option:hover, .dark-panel select option:focus {
+  background-color: var(--color-lime);
+  color: var(--color-forest-deep);
+}
+.dark-panel select option:disabled, .dark-panel select optgroup:disabled {
+  color: #9FB3A8;
+  background-color: var(--color-forest-deep);
+}
+
+input[type="date"], input[type="time"], input[type="datetime-local"], input[type="month"], input[type="week"] {
+  color: var(--color-charcoal);
+  background-color: var(--color-white);
+}
+.dark-panel input[type="date"], .dark-panel input[type="time"] { color: var(--color-ivory); background-color: var(--color-forest-deep); }
+input[type="file"] { color: var(--color-charcoal); }
+input[type="file"]::file-selector-button {
+  background: var(--color-forest); color: var(--color-ivory);
+  border: 0; border-radius: var(--radius-md); padding: 0.5rem 0.9rem; margin-right: 0.75rem;
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+input[type="file"]::file-selector-button:hover { background: var(--color-forest-mid); }
+.dark-panel input[type="file"] { color: var(--color-ivory); }
+.dark-panel input[type="file"]::file-selector-button { background: var(--color-lime); color: var(--color-forest-deep); }

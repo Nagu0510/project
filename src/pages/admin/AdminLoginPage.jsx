@@ -46,7 +46,7 @@ export const AdminLoginPage = () => {
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
               <label style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Admin Email</label>
-              <input type="email" autoComplete="email" placeholder="admin@skillsense.ai" value={email} onChange={(e) => setEmail(e.target.value)} required
+              <input type="email" autoComplete="email" placeholder="Administrator email" value={email} onChange={(e) => setEmail(e.target.value)} required
                 style={{ width: '100%', padding: '0.75rem 1rem', background: 'rgba(244, 240, 231, 0.06)', border: '1.5px solid rgba(183, 228, 74, 0.15)', borderRadius: 'var(--radius-md)', color: 'var(--color-ivory)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
                 onFocus={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.5)'}
                 onBlur={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.15)'}
@@ -69,11 +69,6 @@ export const AdminLoginPage = () => {
 
         <div style={{ textAlign: 'center', marginTop: '1.75rem' }}>
           <Link to="/login" style={{ color: 'rgba(244, 240, 231, 0.5)', fontSize: '0.85rem', textDecoration: 'none' }}>Back to student login</Link>
-        </div>
-        <div style={{ marginTop: '1.25rem', padding: '0.875rem 1rem', background: 'rgba(183, 228, 74, 0.06)', border: '1px solid rgba(183, 228, 74, 0.1)', borderRadius: 'var(--radius-md)' }}>
-          <p style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.4)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
-            Demo: admin@skillsense.ai / admin123
-          </p>
         </div>
       </motion.div>
     </div>

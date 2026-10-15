@@ -1,3 +1,4 @@
+import { formatExamOrigin } from '../../utils/examOrigin';
 import React from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
@@ -188,7 +189,7 @@ export const PreviousQuestionModal = ({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Building2 size={16} color="var(--color-emerald)" />
                   <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-deep-forest)' }}>
-                    {item.company} {item.exam}
+                    {formatExamOrigin(item.company, item.exam, item.year)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: 'var(--color-muted-green)' }}>

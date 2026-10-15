@@ -62,7 +62,7 @@ export const AdminSettingsPage = () => {
                 defaultValue="150"
               />
 
-              <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1.25rem', marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: '1.25rem', marginTop: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <Button variant="outline" size="sm" onClick={() => switchRole('student')}>
                   Switch to Student View (Testing)
                 </Button>
@@ -78,3 +78,5 @@ export const AdminSettingsPage = () => {
     </div>
   );
 };
+
+export default AdminSettingsPage;

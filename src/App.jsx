@@ -3,9 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { SettingsProvider } from './context/SettingsContext';
+import { NotificationProvider } from './context/NotificationContext';
 
 // AuthGate & Route Guards & Common UI
 import { AuthModal } from './components/common/AuthModal';
+import { NotificationDrawer } from './components/common/NotificationDrawer';
+import { EmailVerificationBanner } from './components/common/EmailVerificationBanner';
 import { StudentRoute } from './components/common/StudentRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 import { LoadingState } from './components/common/LoadingState';
@@ -26,7 +29,12 @@ const ResumeAnalyzerPage = lazy(() => import('./pages/ResumeAnalyzerPage'));
 const PlacementTrackerPage = lazy(() => import('./pages/PlacementTrackerPage'));
 const PreviousQuestionsPage = lazy(() => import('./pages/PreviousQuestionsPage'));
 const CompanyInsightsPage = lazy(() => import('./pages/CompanyInsightsPage'));
+const CoursesPage = lazy(() => import('./pages/CoursesPage'));
+const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'));
+const ResumePracticePage = lazy(() => import('./pages/ResumePracticePage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 // Lazy Loaded Student Pages
@@ -45,15 +53,20 @@ const AdminCompaniesPage = lazy(() => import('./pages/admin/AdminCompaniesPage')
 const AdminStudentsPage = lazy(() => import('./pages/admin/AdminStudentsPage'));
 const AdminAnalyticsPage = lazy(() => import('./pages/admin/AdminAnalyticsPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettingsPage'));
+const AdminContentPage = lazy(() => import('./pages/admin/AdminContentPage'));
+const UnsubscribePage = lazy(() => import('./pages/UnsubscribePage'));
 
 export function App() {
   return (
     <Router>
       <AuthProvider>
-        <SettingsProvider>
-          <ToastProvider>
-            {/* Global AuthGate Modal */}
-            <AuthModal />
+        <NotificationProvider>
+          <SettingsProvider>
+            <ToastProvider>
+              {/* Global AuthGate Modal & Notification Drawer */}
+              <AuthModal />
+              <NotificationDrawer />
+              <EmailVerificationBanner />
 
             <Suspense fallback={<LoadingState message="Loading SkillSense AI..." subtitle="Preparing workspace resources" />}>
               <Routes>
@@ -62,6 +75,8 @@ export function App() {
                 <Route path="/features" element={<FeaturesPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/career-paths" element={<CareerPathsPage />} />
+                <Route path="/courses" element={<CoursesPage />} />
+                <Route path="/courses/:slug" element={<CourseDetailPage />} />
                 
                 {/* Roadmap Public & Preview */}
                 <Route path="/roadmap" element={<RoadmapPage />} />
@@ -96,6 +111,9 @@ export function App() {
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/verify-email" element={<VerifyEmailPage />} />
+                <Route path="/unsubscribe" element={<UnsubscribePage />} />
                 <Route path="/admin/login" element={<AdminLoginPage />} />
 
                 {/* ================= STUDENT PROTECTED ROUTES ================= */}
@@ -104,6 +122,14 @@ export function App() {
                   element={
                     <StudentRoute>
                       <DashboardPage />
+                    </StudentRoute>
+                  }
+                />
+                <Route
+                  path="/resume-practice"
+                  element={
+                    <StudentRoute>
+                      <ResumePracticePage />
                     </StudentRoute>
                   }
                 />
@@ -138,6 +164,14 @@ export function App() {
                   element={
                     <AdminRoute>
                       <AdminDashboardPage />
+                    </AdminRoute>
+                  }
+                />
+                <Route
+                  path="/admin/content"
+                  element={
+                    <AdminRoute>
+                      <AdminContentPage />
                     </AdminRoute>
                   }
                 />
@@ -208,8 +242,9 @@ export function App() {
             </Suspense>
           </ToastProvider>
         </SettingsProvider>
-      </AuthProvider>
-    </Router>
+      </NotificationProvider>
+    </AuthProvider>
+  </Router>
   );
 }
 

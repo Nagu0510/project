@@ -1,13 +1,26 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-pydantic>=2.8.0
-pydantic-settings>=2.4.0
-python-multipart>=0.0.9
-python-jose[cryptography]>=3.3.0
-passlib[bcrypt]>=1.7.4
-bcrypt>=4.2.0
-pymongo>=4.8.0
-motor>=3.5.0
-pypdf>=4.0.0
-python-docx>=1.1.2
-scikit-learn>=1.4.0
+fastapi
+uvicorn[standard]
+pydantic[email]
+pydantic-settings
+motor
+python-jose[cryptography]
+bcrypt
+python-multipart
+pypdf
+python-docx
+pymupdf
+pillow
+rapidocr-onnxruntime
+wordninja  # restores spaces that OCR drops between words
+# pytesseract is optional (also needs the tesseract program); OCR_ENGINE=tesseract
+# 1.9.1 DLLs are blocked by Windows Application Control on this machine; 1.9.0 loads
+scikit-learn==1.9.0
+slowapi
+pytest
+pytest-asyncio
+httpx
+mongomock-motor
+dnspython
+google-auth
+requests
+reportlab

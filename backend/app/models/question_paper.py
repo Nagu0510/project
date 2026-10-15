@@ -1,6 +1,20 @@
+from enum import Enum
+
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
+
+
+class QuestionStatus(str, Enum):
+    needs_review = "needs_review"
+    approved = "approved"
+    published = "published"
+    rejected = "rejected"
+
+
+class QuestionStatusUpdate(BaseModel):
+    new_status: QuestionStatus  # anything else is a 422
+
 
 class QuestionPaperMetadata(BaseModel):
     id: str
@@ -13,6 +27,10 @@ class QuestionPaperMetadata(BaseModel):
     questions_count: int = 0
     status: str = "Extracted"  # 'Extracted' | 'Processing' | 'Approved'
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    source_kind: Optional[str] = None      # pdf | docx | txt | json | png | jpg | webp
+    ocr_used: bool = False
+    ocr_confidence: Optional[int] = None   # 0-100, only when OCR ran
+    warnings: List[str] = []
 
 class ExtractedQuestion(BaseModel):
     id: str
@@ -26,16 +44,20 @@ class ExtractedQuestion(BaseModel):
     topic: str
     subtopic: str = "General"
     difficulty: str = "Medium"
-    status: str = "needs_review"  # 'needs_review' | 'approved' | 'published' | 'rejected'
+    status: QuestionStatus = QuestionStatus.needs_review
     appearances_count: int = 1
     historical_occurrences: List[Dict[str, Any]] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    approved_by: Optional[str] = None      # id of the admin who approved or published it
+    approved_at: Optional[datetime] = None
+    ocr_confidence: Optional[int] = None   # set when the paper was read by OCR
+    low_confidence: bool = False           # OCR confidence under 60: read the text carefully before approving
 
 class PreviousQuestion(BaseModel):
     id: str
     paper_id: Optional[str] = None
     title: str
-    problem_slug: Optional[str] = "two-sum"
+    problem_slug: Optional[str] = None
     question_text: str
     normalized_text: Optional[str] = None
     company: str
@@ -66,7 +88,7 @@ class QuestionMatchRequest(BaseModel):
 class MatchDetail(BaseModel):
     company: str
     exam: str
-    year: int
+    year: Optional[int] = None
     similarity: float
 
 class QuestionMatchResponse(BaseModel):

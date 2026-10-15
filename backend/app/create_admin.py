@@ -1,46 +1,54 @@
+"""Create or promote an administrator account.
+
+    python -m app.create_admin                       (prompts; password is not echoed)
+    python -m app.create_admin "Name" admin@x.com    (password still prompted)
+"""
 import asyncio
+import getpass
 import sys
 import uuid
-from datetime import datetime
+
 from motor.motor_asyncio import AsyncIOMotorClient
+
 from app.config import settings
+from app.models.user import check_password_policy
 from app.services.auth_service import hash_password
+from app.utils.timeutil import utcnow
 
-async def create_admin_account(name: str, email: str, password: str):
-    email_clean = email.lower().strip()
-    admin_doc = {
-        "id": f"usr-admin-{uuid.uuid4().hex[:6]}",
-        "name": name,
-        "email": email_clean,
-        "password": hash_password(password),
-        "role": "admin",
-        "created_at": datetime.utcnow(),
-    }
 
-    print(f"Creating administrator account for: {email_clean}...")
+async def create_admin_account(name: str, email: str, password: str) -> None:
+    email = email.lower().strip()
+    check_password_policy(password)
     client = AsyncIOMotorClient(settings.MONGODB_URL, serverSelectionTimeoutMS=3000)
     try:
-        await client.admin.command('ping')
-        db = client[settings.DATABASE_NAME]
-        existing = await db["users"].find_one({"email": email_clean})
-        if existing:
-            await db["users"].update_one({"email": email_clean}, {"$set": {"role": "admin", "password": admin_doc["password"], "name": name}})
-            print(f"Updated existing account {email_clean} to administrator role.")
+        await client.admin.command("ping")
+        users = client[settings.DATABASE_NAME]["users"]
+        hashed = hash_password(password)
+        if await users.find_one({"email": email}, {"_id": 1}):
+            await users.update_one(
+                {"email": email},
+                {"$set": {"role": "admin", "password": hashed, "name": name, "password_changed_at": utcnow()}},
+            )
+            print(f"Existing account {email} is now an administrator.")
         else:
-            await db["users"].insert_one(admin_doc)
-            print(f"Administrator account successfully created with ID: {admin_doc['id']}.")
+            await users.insert_one({
+                "id": f"usr-admin-{uuid.uuid4().hex[:6]}", "name": name, "email": email,
+                "password": hashed, "role": "admin", "created_at": utcnow(),
+            })
+            print(f"Administrator {email} created.")
+    finally:
         client.close()
-    except Exception as e:
-        print(f"Note: MongoDB not reachable ({e}). Account configured in memory.")
+
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 4:
-        name_arg = sys.argv[1]
-        email_arg = sys.argv[2]
-        pass_arg = sys.argv[3]
-    else:
-        name_arg = input("Admin Name [SkillSense Admin]: ").strip() or "SkillSense Admin"
-        email_arg = input("Admin Email [admin@skillsense.ai]: ").strip() or "admin@skillsense.ai"
-        pass_arg = input("Admin Password [admin123]: ").strip() or "admin123"
-
-    asyncio.run(create_admin_account(name_arg, email_arg, pass_arg))
+    name = sys.argv[1] if len(sys.argv) > 1 else input("Admin name: ").strip()
+    email = sys.argv[2] if len(sys.argv) > 2 else input("Admin email: ").strip()
+    pw = getpass.getpass("Password: ")
+    if pw != getpass.getpass("Confirm password: "):
+        sys.exit("Passwords do not match.")
+    try:
+        asyncio.run(create_admin_account(name, email, pw))
+    except ValueError as exc:  # password policy
+        sys.exit(str(exc))
+    except Exception as exc:  # Mongo unreachable etc.: fail loudly, never pretend it worked
+        sys.exit(f"Could not create administrator: {exc}")

@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { ErrorBanner } from '../components/common/ErrorBanner';
 import { Sidebar } from '../components/common/Sidebar';
 import { Navbar } from '../components/common/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
-import { mockPlacementJobs } from '../data/mockPlacementJobs';
+import { EmptyState } from '../components/common/EmptyState';
+import { LoadingState } from '../components/common/LoadingState';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { placementService } from '../services/placementService';
 import {
   Briefcase,
   Building2,
@@ -20,14 +23,46 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+const formatDeadline = (value) => {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
 export const PlacementTrackerPage = () => {
-  const { user, isAuthenticated, requireAuth } = useAuth();
+  const { user, isAuthenticated, isAuthLoading, requireAuth } = useAuth();
   const { addToast } = useToast();
   const [selectedJob, setSelectedJob] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [appliedJobs, setAppliedJobs] = useState({});
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const filteredJobs = mockPlacementJobs.filter((job) => {
+  useEffect(() => {
+    if (isAuthLoading) return undefined;
+    if (!isAuthenticated) { // placement drives are for signed-in students
+      setLoading(false);
+      return undefined;
+    }
+    let mounted = true;
+    const fetchJobs = async () => {
+      setLoading(true);
+      setLoadError('');
+      try {
+        const data = await placementService.getPlacementJobs();
+        if (mounted) setJobs(data || []);
+      } catch (err) {
+        if (mounted) setLoadError(err?.message || 'Please try again.');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+    fetchJobs();
+    return () => { mounted = false; };
+  }, [isAuthenticated, isAuthLoading, reloadKey]);
+
+  const filteredJobs = jobs.filter((job) => {
     return (
       job.company?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.role?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -37,8 +72,13 @@ export const PlacementTrackerPage = () => {
 
   const handleApply = (jobId, companyName) => {
     requireAuth(() => {
-      setAppliedJobs((prev) => ({ ...prev, [jobId]: true }));
-      addToast(`Application simulated for ${companyName}! Status: Applied.`, 'success');
+      const job = jobs.find((j) => j.id === jobId);
+      if (job?.applicationLink) {
+        window.open(job.applicationLink, '_blank', 'noopener,noreferrer');
+        setAppliedJobs((prev) => ({ ...prev, [jobId]: true }));
+      } else {
+        addToast(`${companyName} has not published an application link yet. Check with your placement office.`, 'info');
+      }
     }, '/placement-tracker');
   };
 
@@ -48,6 +88,7 @@ export const PlacementTrackerPage = () => {
 
       <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '3rem 1.5rem 5rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0 }}>
+          {loadError && <ErrorBanner title="Placement drives could not be loaded." message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />}
           {/* Guest Preview Banner */}
           {!isAuthenticated && (
             <div
@@ -82,7 +123,6 @@ export const PlacementTrackerPage = () => {
                 <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-emerald)' }}>
                   Corporate Hiring Intelligence
                 </span>
-                {!isAuthenticated && <Badge variant="lime" size="sm">Sample Matches</Badge>}
               </div>
               <h1
                 style={{
@@ -123,10 +163,25 @@ export const PlacementTrackerPage = () => {
           {/* =========================================================================
               OPPORTUNITIES GRID
               ========================================================================= */}
+          {loading && <LoadingState message="Loading placement drives..." subtitle="One moment" />}
+          {!loading && !isAuthenticated && (
+            <EmptyState
+              title="Sign in to see placement drives"
+              description="Placement drives are matched against your own skills, so you need to be signed in."
+              actionText="Sign in"
+              onAction={() => requireAuth(() => {}, '/placement-tracker')}
+            />
+          )}
+          {!loading && isAuthenticated && filteredJobs.length === 0 && (
+            <EmptyState
+              title={jobs.length === 0 ? 'No placement drives yet' : 'No drives match your search'}
+              description={jobs.length === 0 ? 'Open drives will appear here as soon as your placement office publishes them.' : 'Try a different company or skill.'}
+            />
+          )}
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))',
               gap: '1.5rem',
             }}
           >
@@ -195,7 +250,7 @@ export const PlacementTrackerPage = () => {
                           fontSize: '0.825rem',
                         }}
                       >
-                        {job.matchPercentage}% Match
+                        {job.matchKnown ? `${job.matchPercentage}% Match` : <span title="Take an assessment to see your match">No match yet</span>}
                       </div>
                     </div>
 
@@ -203,7 +258,7 @@ export const PlacementTrackerPage = () => {
                     <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', fontSize: '0.825rem', color: 'var(--color-muted-green)' }}>
                       <span>Package: <strong style={{ color: 'var(--color-deep-forest)' }}>{job.package}</strong></span>
                       <span>·</span>
-                      <span>Deadline: <strong style={{ color: '#D97706' }}>{job.deadline}</strong></span>
+                      {job.deadline && <span>Deadline: <strong style={{ color: '#B45309' }}>{formatDeadline(job.deadline)}</strong></span>}
                     </div>
 
                     {/* Required Skills */}
@@ -230,6 +285,22 @@ export const PlacementTrackerPage = () => {
                         ))}
                       </div>
                     </div>
+
+                    {/* Eligibility from the student's own profile (CGPA, branch, graduation year) */}
+                    {job.eligibility && (
+                      <div
+                        data-testid="eligibility"
+                        data-state={job.eligibility.state}
+                        style={{
+                          marginBottom: '1rem', fontSize: '0.8rem', fontWeight: 600, padding: '6px 10px', borderRadius: 'var(--radius-md)',
+                          color: job.eligibility.state === 'not_eligible' ? '#991B1B' : job.eligibility.state === 'unknown' ? '#92400E' : '#065F46',
+                          background: job.eligibility.state === 'not_eligible' ? '#FEF2F2' : job.eligibility.state === 'unknown' ? '#FFFBEB' : '#ECFDF5',
+                        }}
+                      >
+                        {job.eligibility.message}
+                        {job.eligibility.state === 'unknown' && <Link to="/profile" style={{ marginLeft: 8, color: 'inherit', textDecoration: 'underline' }}>Open profile</Link>}
+                      </div>
+                    )}
 
                     {/* Missing Skills Warning */}
                     {job.missingSkills && job.missingSkills.length > 0 && (
@@ -271,7 +342,7 @@ export const PlacementTrackerPage = () => {
                     }}
                   >
                     <Badge variant={isApplied ? 'success' : job.status === 'Ready to Apply' ? 'lime' : 'neutral'}>
-                      {isApplied ? 'Applied' : job.status}
+                      {isApplied ? 'Applied' : job.status === 'published' ? 'Open' : job.status}
                     </Badge>
 
                     <Button
@@ -317,7 +388,7 @@ export const PlacementTrackerPage = () => {
                   Match Assessment
                 </div>
                 <div style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--color-emerald)' }}>
-                  {selectedJob.matchPercentage}% Placement Fit
+                  {selectedJob.matchKnown ? `${selectedJob.matchPercentage}% Placement Fit` : 'No skills assessed yet'}
                 </div>
               </div>
 
@@ -368,3 +439,5 @@ export const PlacementTrackerPage = () => {
     </div>
   );
 };
+
+export default PlacementTrackerPage;

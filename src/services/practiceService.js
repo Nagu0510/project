@@ -1,77 +1,46 @@
 import { api } from './api';
-import { mockCodingProblems } from '../data/mockCodingProblems';
 import { normalizeProblem, normalizeProblemList } from '../utils/normalizers';
 
 export const practiceService = {
-  // Coding IDE problems
+  // Coding IDE problems (API data only; an empty list becomes an empty state in the page)
   async getProblems(params = {}) {
     try {
       const queryStr = new URLSearchParams(params).toString();
-      const endpoint = queryStr ? `/practice/problems?${queryStr}` : '/practice/problems';
-      const data = await api.get(endpoint);
-      const normalized = normalizeProblemList(data);
-      if (normalized.length > 0) return normalized;
-      return normalizeProblemList(mockCodingProblems);
-    } catch {
-      return normalizeProblemList(mockCodingProblems);
+      const data = await api.get(queryStr ? `/practice/problems?${queryStr}` : '/practice/problems');
+      return normalizeProblemList(data);
+    } catch (err) {
+      console.warn('Problems unavailable:', err.message);
+      throw err;
     }
   },
 
   async getProblemBySlug(slug) {
-    try {
-      const data = await api.get(`/practice/problems/${encodeURIComponent(slug)}`);
-      const normalized = normalizeProblem(data);
-      if (normalized) return normalized;
-      const fallback = mockCodingProblems[slug] || Object.values(mockCodingProblems)[0];
-      return normalizeProblem(fallback);
-    } catch {
-      const fallback = mockCodingProblems[slug] || Object.values(mockCodingProblems)[0];
-      return normalizeProblem(fallback);
-    }
+    const data = await api.get(`/practice/problems/${encodeURIComponent(slug)}`);
+    return normalizeProblem(data);
   },
 
-  async runCode(problemId, language, sourceCode, stdin = '') {
-    try {
-      return await api.post('/practice/code/run', {
-        problem_id: problemId,
-        language: language,
-        source_code: sourceCode,
-        stdin: stdin,
-      });
-    } catch (err) {
-      console.warn('Run code endpoint error:', err);
-      return {
-        status: 'Error',
-        stdout: '',
-        stderr: err.message || 'Execution error encountered.',
-        compile_output: '',
-        runtime_ms: 0,
-        memory_kb: 0,
-      };
-    }
+  // These two throw on failure (401, 413, 429, 503, network) so the page can tell the user exactly what happened.
+  runCode(problemId, language, sourceCode, stdin = '') {
+    return api.post('/practice/code/run', {
+      problem_id: problemId,
+      language,
+      source_code: sourceCode,
+      stdin,
+    }, { timeoutMs: 40000 });
   },
 
-  async submitCode(problemId, language, sourceCode) {
-    try {
-      return await api.post('/practice/code/submit', {
-        problem_id: problemId,
-        language: language,
-        source_code: sourceCode,
-      });
-    } catch (err) {
-      console.warn('Submit code endpoint error:', err);
-      return {
-        status: 'Error',
-        passed_count: 0,
-        total_count: 1,
-        stdout: '',
-        stderr: err.message || 'Submission evaluation error.',
-        compile_output: '',
-        runtime_ms: 0,
-        memory_kb: 0,
-        test_results: [],
-      };
-    }
+  submitCode(problemId, language, sourceCode) {
+    return api.post('/practice/code/submit', {
+      problem_id: problemId,
+      language,
+      source_code: sourceCode,
+    }, { timeoutMs: 120000 }); // judges up to 5 cases one after another
+  },
+
+  // Slugs of the problems this student has an Accepted submission for
+  async getSolved() {
+    const data = await api.get('/practice/solved');
+    return Array.isArray(data?.solved) ? data.solved : [];
   },
 
   async matchQuestionIntelligence(questionId, questionText) {
@@ -92,19 +61,8 @@ export const practiceService = {
     }
   },
 
-  async submitAttempt(slug, language, code) {
-    try {
-      return await api.post(`/practice/problems/${encodeURIComponent(slug)}/attempt`, {
-        language,
-        code,
-      });
-    } catch {
-      return {
-        id: `att-local-${Date.now()}`,
-        status: 'Accepted',
-        message: 'Solution recorded in candidate portfolio session.',
-      };
-    }
+  submitAttempt(slug, language, code) {
+    return api.post(`/practice/problems/${encodeURIComponent(slug)}/attempt`, { language, code });
   },
 
   // Interactive Question Practice (MCQs, Code Output, Find Error)
@@ -124,32 +82,14 @@ export const practiceService = {
     }
   },
 
-  async answerQuestion(questionId, selectedOptionIndex) {
-    try {
-      return await api.post(`/practice/questions/${encodeURIComponent(questionId)}/answer`, {
-        selected_option_index: selectedOptionIndex,
-      });
-    } catch (err) {
-      console.warn('Practice answer submission fallback:', err);
-      return {
-        question_id: questionId,
-        is_correct: true,
-        explanation: 'Answer submitted in offline practice mode.',
-      };
-    }
+  answerQuestion(questionId, selectedOptionIndex) {
+    return api.post(`/practice/questions/${encodeURIComponent(questionId)}/answer`, {
+      selected_option_index: selectedOptionIndex,
+    });
   },
 
-  async getStats() {
-    try {
-      return await api.get('/practice/stats');
-    } catch {
-      return {
-        total_solved: 15,
-        correct_count: 13,
-        accuracy_percentage: 86,
-        streak_days: 5,
-      };
-    }
+  getStats() {
+    return api.get('/practice/stats');
   },
 };
 

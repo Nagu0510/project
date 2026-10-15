@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from '../components/common/Sidebar';
 import { Navbar } from '../components/common/Navbar';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
+import { EmptyState } from '../components/common/EmptyState';
+import { LoadingState } from '../components/common/LoadingState';
 import { practiceService } from '../services/practiceService';
+import { Link } from 'react-router-dom';
+import { formatExamOrigin } from '../utils/examOrigin';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -24,26 +28,123 @@ import {
   Layers,
 } from 'lucide-react';
 
-const SKILL_OPTIONS = ['All Skills', 'Python', 'Java', 'C', 'C++', 'JavaScript', 'SQL', 'DSA'];
 const DIFFICULTY_OPTIONS = ['All', 'Easy', 'Medium', 'Hard'];
+const LANGUAGES = [
+  ['python', 'Python 3'],
+  ['java', 'Java (class Main)'],
+  ['c', 'C (GCC)'],
+  ['cpp', 'C++ (G++)'],
+  ['javascript', 'JavaScript (Node.js)'],
+];
+const BUSY_TITLE = 'Online compiler is busy';
+
+// Turn a failed run/submit request into a message a student can act on. Never returns an empty string.
+const explainExecutionError = (err) => {
+  const detail = err?.message || '';
+  switch (err?.status) {
+    case 401:
+      return { tone: 'warning', title: 'Please sign in', message: 'You need to be signed in as a student to run code. Sign in and try again.' };
+    case 403:
+      return { tone: 'warning', title: 'Student account required', message: 'Only student accounts can run code in the practice arena.' };
+    case 413:
+      return { tone: 'warning', title: 'Code too large', message: detail || 'Your code or input is larger than the allowed limit (20 KB of code).' };
+    case 429:
+      if (/online compiler/i.test(detail)) {
+        return { tone: 'warning', title: BUSY_TITLE, message: detail };
+      }
+      return { tone: 'warning', title: 'Slow down a little', message: 'You are running code too quickly. The limit is 10 runs or submissions per minute. Wait a moment and try again.' };
+    case 503:
+      if (/online compiler/i.test(detail)) {
+        return { tone: 'error', title: BUSY_TITLE, message: detail };
+      }
+      return { tone: 'error', title: 'Code runner unavailable', message: detail || 'The code runner is not available right now. Please try again later.' };
+    default:
+      if (err?.isNetworkError || err?.isTimeout || /reach the server|timed out/i.test(detail)) {
+        return { tone: 'error', title: 'Cannot reach the server', message: 'The request did not reach the server. Check your connection and try again.' };
+      }
+      return { tone: 'error', title: 'Something went wrong', message: detail || 'The code could not be run. Please try again.' };
+  }
+};
+
+// Results that need more than a status word: show what to do next.
+const noticeForResult = (res) => {
+  if (res.status === 'Judge unavailable') {
+    return { tone: 'warning', title: BUSY_TITLE, message: `${res.message || 'Try again in a moment.'} Your code was not judged and nothing was recorded.` };
+  }
+  if (res.status === 'Time Limit Exceeded') {
+    return { tone: 'warning', title: 'Time limit exceeded', message: 'Your program ran too long and was stopped. Check for an infinite loop or a slow approach.' };
+  }
+  return null;
+};
+
+const VERDICT_TONE = {
+  Accepted: { color: 'var(--color-lime)', bg: 'rgba(183, 228, 74, 0.14)', border: 'rgba(183, 228, 74, 0.45)' },
+  'Judge unavailable': { color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.5)' },
+};
+const VERDICT_FAIL = { color: '#EF4444', bg: 'rgba(239, 68, 68, 0.12)', border: 'rgba(239, 68, 68, 0.45)' };
+
+// The result of a submit: verdict, how many cases passed, and what failed (input and expected only for a shown case).
+const VerdictPanel = ({ result }) => {
+  const tone = VERDICT_TONE[result.status] || VERDICT_FAIL;
+  const failing = (result.test_results || []).find((t) => t.case === result.failed_case);
+  const judged = result.status !== 'Judge unavailable' && result.status !== 'Compile Error';
+  return (
+    <div
+      data-testid="verdict"
+      data-verdict={result.status}
+      style={{ marginBottom: '0.75rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-lg)', background: tone.bg, border: `1px solid ${tone.border}`, color: 'var(--color-ivory)', fontSize: '0.85rem' }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: '6px' }}>
+        <strong data-testid="verdict-status" style={{ color: tone.color, fontSize: '1.05rem' }}>
+          {result.status === 'Judge unavailable' ? BUSY_TITLE : result.status}
+        </strong>
+        {judged && (
+          <span style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.7)' }}>
+            {result.passed_count}/{result.total_count} test cases passed &middot; {result.runtime_ms} ms
+          </span>
+        )}
+      </div>
+      {result.message && result.status !== 'Compile Error' && !failing && (
+        <div data-testid="submit-message" style={{ marginTop: '4px', color: 'rgba(244, 240, 231, 0.85)' }}>{result.message}</div>
+      )}
+      {result.status === 'Compile Error' && result.compile_output && (
+        <pre style={{ margin: '6px 0 0', whiteSpace: 'pre-wrap', color: '#F59E0B', fontSize: '0.78rem', maxHeight: '110px', overflow: 'auto' }}>{result.compile_output}</pre>
+      )}
+      {failing && result.status !== 'Accepted' && (
+        <div data-testid="failed-case" style={{ marginTop: '8px', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+          <div style={{ fontWeight: 700 }}>Failed on test case {failing.case}{failing.is_hidden ? ' (hidden)' : ''}</div>
+          {failing.is_hidden ? (
+            <div style={{ color: 'rgba(244, 240, 231, 0.7)' }}>The input and expected output of hidden cases are not shown.</div>
+          ) : (
+            <>
+              <div style={{ whiteSpace: 'pre-wrap' }}><strong>Input:</strong> {failing.input}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}><strong>Expected:</strong> {failing.expected}</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}><strong>Your output:</strong> {failing.actual || '(nothing printed)'}</div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const CodingPracticePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedSlug = searchParams.get('problem') || 'two-sum';
+  const requestedSlug = searchParams.get('problem');
 
-  const { user, isAuthenticated, requireAuth } = useAuth();
+  const { isAuthenticated, isStudent, requireAuth } = useAuth();
   const { addToast } = useToast();
 
   const [problems, setProblems] = useState([]);
-  const [currentProblem, setCurrentProblem] = useState(null);
+  const [solved, setSolved] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Question Intelligence state
   const [matchData, setMatchData] = useState(null);
 
   // Filter States
-  const [selectedSkill, setSelectedSkill] = useState('All Skills');
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
   const [selectedTopic, setSelectedTopic] = useState('All');
 
@@ -54,72 +155,78 @@ export const CodingPracticePage = () => {
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [outputTab, setOutputTab] = useState('output'); // 'output' | 'testcases' | 'stdin'
+  const drafts = useRef({}); // what the student typed per problem + language, so switching never loses work
 
   // Real execution output object
   const [executionResult, setExecutionResult] = useState(null);
 
-  // Fetch problems on mount and when filters change
+  const requestedProblem = problems.find((p) => p.slug === requestedSlug || p.id === requestedSlug);
+  const currentProblem = requestedProblem || problems[0] || null;
+  const unknownRequested = Boolean(requestedSlug) && problems.length > 0 && !requestedProblem;
+  const slug = currentProblem?.slug;
+
+  const topics = ['All', ...Array.from(new Set(problems.map((p) => p.topic).filter(Boolean)))];
+  const visibleProblems = problems.filter(
+    (p) => (selectedDifficulty === 'All' || p.difficulty === selectedDifficulty)
+      && (selectedTopic === 'All' || p.topic === selectedTopic)
+  );
+  const selectable = currentProblem && !visibleProblems.includes(currentProblem) ? [currentProblem, ...visibleProblems] : visibleProblems;
+
+  // The catalog comes from the API only; there is no built-in list to fall back to.
   useEffect(() => {
-    let isMounted = true;
-    const loadProblems = async () => {
+    let alive = true;
+    (async () => {
       setLoading(true);
       setError(null);
       try {
-        const filters = {};
-        if (selectedSkill !== 'All Skills') filters.skill = selectedSkill;
-        if (selectedDifficulty !== 'All') filters.difficulty = selectedDifficulty;
-        if (selectedTopic !== 'All') filters.topic = selectedTopic;
-
-        const fetched = await practiceService.getProblems(filters);
-        if (isMounted) {
-          setProblems(fetched);
-          const target = fetched.find((p) => p.slug === requestedSlug || p.id === requestedSlug) || fetched[0] || null;
-          setCurrentProblem(target);
-          if (target) {
-            const sc = target.starterCode || target.starter_code || {};
-            const initialCode = sc[selectedLanguage] || sc.python || '';
-            setCode(initialCode);
-          }
-        }
-      } catch (err) {
-        if (isMounted) setError('Failed to load coding problem catalog.');
+        const fetched = await practiceService.getProblems();
+        if (alive) setProblems(fetched);
+      } catch {
+        if (alive) setError('Failed to load coding problem catalog.');
       } finally {
-        if (isMounted) setLoading(false);
+        if (alive) setLoading(false);
       }
-    };
-    loadProblems();
-    return () => { isMounted = false; };
-  }, [requestedSlug, selectedSkill, selectedDifficulty, selectedTopic]);
+    })();
+    return () => { alive = false; };
+  }, [reloadKey]);
 
-  // Sync starter code and trigger Question Intelligence matching on problem load
+  const refreshSolved = () => {
+    if (!isStudent) { setSolved([]); return; }
+    practiceService.getSolved().then(setSolved).catch(() => setSolved([]));
+  };
+  useEffect(refreshSolved, [isStudent]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load this problem's code for the chosen language: the student's own draft, else the starter code
   useEffect(() => {
-    if (currentProblem) {
-      const sc = currentProblem.starterCode || currentProblem.starter_code || {};
-      const newCode = sc[selectedLanguage] || sc.python || '';
-      setCode(newCode);
-      setExecutionResult(null);
+    if (!currentProblem) return;
+    setCode(drafts.current[`${slug}:${selectedLanguage}`] ?? currentProblem.starterCode?.[selectedLanguage] ?? '');
+    setExecutionResult(null);
+  }, [slug, selectedLanguage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-      // Trigger Question Intelligence scan against Admin-uploaded papers
-      const checkQuestionIntelligence = async () => {
-        const textToMatch = `${currentProblem.title} ${currentProblem.description}`;
-        const matchRes = await practiceService.matchQuestionIntelligence(currentProblem.id, textToMatch);
-        if (matchRes && matchRes.matched) {
-          setMatchData(matchRes);
-        } else {
-          setMatchData(null);
-        }
-      };
-      checkQuestionIntelligence();
-    }
-  }, [selectedLanguage, currentProblem]);
+  // A new problem starts with its first sample as the custom input, and is checked against Question Intelligence
+  useEffect(() => {
+    if (!currentProblem) return undefined;
+    setCustomStdin(currentProblem.examples?.[0]?.input || '');
+    let alive = true;
+    practiceService
+      .matchQuestionIntelligence(currentProblem.id, `${currentProblem.title} ${currentProblem.description}`)
+      .then((matchRes) => { if (alive) setMatchData(matchRes && matchRes.matched ? matchRes : null); });
+    return () => { alive = false; };
+  }, [slug]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSelectProblem = (slug) => {
-    setSearchParams({ problem: slug });
-    const target = problems.find((p) => p.slug === slug || p.id === slug);
-    if (target) {
-      setCurrentProblem(target);
-      setExecutionResult(null);
-    }
+  const handleCodeChange = (value) => {
+    setCode(value);
+    drafts.current[`${slug}:${selectedLanguage}`] = value;
+  };
+
+  const handleSelectProblem = (nextSlug) => {
+    setSearchParams({ problem: nextSlug });
+  };
+
+  const showExecutionError = (err) => {
+    const notice = explainExecutionError(err);
+    setExecutionResult({ type: 'error', status: notice.title, notice, stdout: '', stderr: '', compile_output: '' });
+    setOutputTab('output'); // the inline notice in the output panel is the message; no extra toast stack
   };
 
   const handleRunCode = () => {
@@ -141,6 +248,7 @@ export const CodingPracticePage = () => {
           compile_output: res.compile_output,
           runtime_ms: res.runtime_ms,
           memory_kb: res.memory_kb,
+          notice: noticeForResult(res),
         });
         setOutputTab('output');
         if (res.status === 'Success') {
@@ -148,8 +256,8 @@ export const CodingPracticePage = () => {
         } else {
           addToast(`Execution ended with ${res.status}`, 'warning');
         }
-      } catch (e) {
-        addToast('Execution failed to communicate with sandbox.', 'error');
+      } catch (err) {
+        showExecutionError(err);
       } finally {
         setRunning(false);
       }
@@ -177,15 +285,21 @@ export const CodingPracticePage = () => {
           runtime_ms: res.runtime_ms,
           memory_kb: res.memory_kb,
           test_results: res.test_results || [],
+          failed_case: res.failed_case,
+          message: res.message,
+          notice: noticeForResult(res),
         });
-        setOutputTab('testcases');
+        setOutputTab(res.test_results?.length ? 'testcases' : 'output');
         if (res.status === 'Accepted') {
           addToast(`Accepted! Passed ${res.passed_count}/${res.total_count} test cases.`, 'success');
+          refreshSolved();
+        } else if (res.status === 'Judge unavailable') {
+          addToast(`${BUSY_TITLE}. Nothing was recorded, try again.`, 'warning');
         } else {
-          addToast(`${res.status}: Passed ${res.passed_count}/${res.total_count} test cases.`, 'warning');
+          addToast(`${res.status}: passed ${res.passed_count}/${res.total_count} test cases.`, 'warning');
         }
-      } catch (e) {
-        addToast('Submission failed.', 'error');
+      } catch (err) {
+        showExecutionError(err);
       } finally {
         setSubmitting(false);
       }
@@ -231,7 +345,7 @@ export const CodingPracticePage = () => {
                   Question Intelligence Match:
                   <span style={{ fontWeight: 500, marginLeft: '6px' }}>
                     {matchData.best_match ? (
-                      <>This question was asked in <strong>{matchData.best_match.company} {matchData.best_match.exam} ({matchData.best_match.year})</strong>.</>
+                      <>This question was asked in <strong>{formatExamOrigin(matchData.best_match.company, matchData.best_match.exam, matchData.best_match.year)}</strong>.</>
                     ) : (
                       <>Previously asked in <strong>{matchData.exam_origin}</strong>.</>
                     )}
@@ -267,7 +381,7 @@ export const CodingPracticePage = () => {
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 <span style={{ color: 'var(--color-emerald)' }}>✦</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)', letterSpacing: '0.06em' }}>
-                  Isolated Secure Execution Sandbox
+                  Online Compiler &middot; needs internet
                 </span>
               </div>
               <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-forest)', margin: 0, lineHeight: 1.1 }}>
@@ -278,10 +392,11 @@ export const CodingPracticePage = () => {
             {/* Filter Dropdowns */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-forest)' }}>Skill:</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-forest)' }}>Topic:</span>
                 <select
-                  value={selectedSkill}
-                  onChange={(e) => setSelectedSkill(e.target.value)}
+                  aria-label="Filter by topic"
+                  value={selectedTopic}
+                  onChange={(e) => setSelectedTopic(e.target.value)}
                   style={{
                     padding: '0.5rem 0.85rem',
                     borderRadius: 'var(--radius-full)',
@@ -294,13 +409,14 @@ export const CodingPracticePage = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  {SKILL_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+                  {topics.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-forest)' }}>Difficulty:</span>
                 <select
+                  aria-label="Filter by difficulty"
                   value={selectedDifficulty}
                   onChange={(e) => setSelectedDifficulty(e.target.value)}
                   style={{
@@ -320,6 +436,27 @@ export const CodingPracticePage = () => {
               </div>
             </div>
           </motion.div>
+
+          {loading && <LoadingState message="Loading coding problems..." subtitle="One moment" />}
+          {!loading && error && (
+            <EmptyState
+              title="Problems could not be loaded"
+              description="The problem catalog is unavailable right now. Check your connection and try again."
+              actionText="Try again"
+              onAction={() => setReloadKey((k) => k + 1)}
+            />
+          )}
+          {!loading && !error && !currentProblem && (
+            <EmptyState
+              title="No coding problems yet"
+              description="The problem bank is empty. Problems appear here once they have been loaded into the database."
+            />
+          )}
+          {unknownRequested && (
+            <div role="status" data-testid="unknown-problem" style={{ marginBottom: '1rem', padding: '0.7rem 1rem', borderRadius: 'var(--radius-md)', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.4)', fontSize: '0.875rem', color: 'var(--color-forest)' }}>
+              The problem "{requestedSlug}" is not available. Showing "{currentProblem?.title}" instead.
+            </div>
+          )}
 
           {/* Main IDE Workspace */}
           {!loading && currentProblem && (
@@ -359,14 +496,21 @@ export const CodingPracticePage = () => {
                         <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
                           {currentProblem.category || currentProblem.topic || 'Coding'}
                         </span>
+                        {solved.includes(currentProblem.slug) && (
+                          <span data-testid="solved-badge"><Badge variant="success">✓ Solved</Badge></span>
+                        )}
                       </div>
 
                       {problems.length > 1 && (
                         <select
+                          aria-label="Choose a problem"
+                          data-testid="problem-select"
                           value={currentProblem.slug}
                           onChange={(e) => handleSelectProblem(e.target.value)}
                           style={{
                             padding: '4px 10px',
+                            maxWidth: '100%',
+                            minWidth: 0,
                             borderRadius: 'var(--radius-md)',
                             border: '1px solid var(--color-border-medium)',
                             backgroundColor: 'var(--color-ivory-soft)',
@@ -376,9 +520,9 @@ export const CodingPracticePage = () => {
                             cursor: 'pointer',
                           }}
                         >
-                          {problems.map((p) => (
+                          {selectable.map((p) => (
                             <option key={p.id} value={p.slug}>
-                              {p.title} ({p.difficulty})
+                              {solved.includes(p.slug) ? '✓ ' : ''}{p.title} ({p.difficulty})
                             </option>
                           ))}
                         </select>
@@ -392,6 +536,25 @@ export const CodingPracticePage = () => {
                     <p style={{ fontSize: '0.9375rem', color: 'var(--color-charcoal)', lineHeight: 1.7, marginBottom: '1.5rem', whiteSpace: 'pre-line' }}>
                       {currentProblem.description}
                     </p>
+
+                    {(currentProblem.inputFormat || currentProblem.outputFormat || currentProblem.constraints?.length > 0) && (
+                      <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.9rem', color: 'var(--color-charcoal)', lineHeight: 1.6 }}>
+                        {currentProblem.inputFormat && (
+                          <div><strong style={{ color: 'var(--color-forest)' }}>Input format. </strong>{currentProblem.inputFormat}</div>
+                        )}
+                        {currentProblem.outputFormat && (
+                          <div><strong style={{ color: 'var(--color-forest)' }}>Output format. </strong>{currentProblem.outputFormat}</div>
+                        )}
+                        {currentProblem.constraints?.length > 0 && (
+                          <div>
+                            <strong style={{ color: 'var(--color-forest)' }}>Constraints</strong>
+                            <ul style={{ margin: '4px 0 0', paddingLeft: '1.25rem' }}>
+                              {currentProblem.constraints.map((c) => <li key={c}>{c}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Examples Section */}
                     {examples.length > 0 && (
@@ -412,8 +575,8 @@ export const CodingPracticePage = () => {
                               fontFamily: 'var(--font-mono)',
                             }}
                           >
-                            <div><strong>Input:</strong> {ex.input}</div>
-                            <div><strong>Output:</strong> {ex.output}</div>
+                            <div style={{ whiteSpace: 'pre-wrap' }}><strong>Input:</strong> {ex.input}</div>
+                            <div style={{ whiteSpace: 'pre-wrap' }}><strong>Output:</strong> {ex.output}</div>
                             {ex.explanation && <div style={{ color: 'var(--color-text-muted)', marginTop: '4px', fontFamily: 'var(--font-sans)', fontSize: '0.8rem' }}>{ex.explanation}</div>}
                           </div>
                         ))}
@@ -438,8 +601,9 @@ export const CodingPracticePage = () => {
                   )}
                 </div>
 
-                {/* Right Panel: Code Editor IDE */}
+                {/* Right Panel: Code Editor IDE (dark surface: native option lists use the .dark-panel colours) */}
                 <div
+                  className="dark-panel"
                   style={{
                     background: 'var(--color-forest)',
                     borderRadius: 'var(--radius-2xl)',
@@ -454,6 +618,8 @@ export const CodingPracticePage = () => {
                     {/* Header bar: Language Switcher + Run/Submit buttons */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                       <select
+                        aria-label="Language"
+                        data-testid="language-select"
                         value={selectedLanguage}
                         onChange={(e) => setSelectedLanguage(e.target.value)}
                         style={{
@@ -468,27 +634,36 @@ export const CodingPracticePage = () => {
                           cursor: 'pointer',
                         }}
                       >
-                        <option value="python">Python 3</option>
-                        <option value="java">Java 21</option>
-                        <option value="c">C (GCC)</option>
-                        <option value="cpp">C++ (G++)</option>
-                        <option value="javascript">JavaScript (Node.js)</option>
+                        {LANGUAGES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <Button variant="lime" size="sm" onClick={handleRunCode} disabled={running || submitting}>
                           {running ? 'Running...' : 'Run Code ▶'}
                         </Button>
-                        <Button variant="primary" size="sm" onClick={handleSubmit} disabled={running || submitting}>
+                        <Button variant="outline" className="btn-outline-light" size="sm" onClick={handleSubmit} disabled={running || submitting}>
                           {submitting ? 'Evaluating...' : 'Submit'}
                         </Button>
                       </div>
                     </div>
 
+                    {!isAuthenticated && (
+                      <div
+                        data-testid="signin-hint"
+                        style={{ marginBottom: '0.75rem', padding: '0.6rem 0.85rem', borderRadius: 'var(--radius-md)', background: 'rgba(183, 228, 74, 0.12)', border: '1px solid rgba(183, 228, 74, 0.3)', color: 'var(--color-ivory)', fontSize: '0.8rem' }}
+                      >
+                        You need to be signed in to run or submit code.{' '}
+                        <Link to="/login" style={{ color: 'var(--color-lime)', fontWeight: 700 }}>Sign in</Link>
+                        {' '}or{' '}
+                        <Link to="/signup" style={{ color: 'var(--color-lime)', fontWeight: 700 }}>create a free account</Link>.
+                      </div>
+                    )}
+
                     {/* Code Editor Textarea */}
                     <textarea
                       value={code}
-                      onChange={(e) => setCode(e.target.value)}
+                      onChange={(e) => handleCodeChange(e.target.value)}
+                      aria-label="Code editor"
                       spellCheck={false}
                       style={{
                         width: '100%',
@@ -509,6 +684,8 @@ export const CodingPracticePage = () => {
 
                   {/* Output Terminal & Test Case Results Panel */}
                   <div style={{ marginTop: '1rem' }}>
+                    {executionResult?.type === 'submit' && <VerdictPanel result={executionResult} />}
+
                     {/* Navigation Tabs */}
                     <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', borderBottom: '1px solid rgba(244, 240, 231, 0.15)', pb: '4px' }}>
                       <button
@@ -584,10 +761,30 @@ export const CodingPracticePage = () => {
                               }}>
                                 Status: {executionResult.status}
                               </span>
-                              <span style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.5)' }}>
-                                {executionResult.runtime_ms} ms | {executionResult.memory_kb} KB
-                              </span>
+                              {executionResult.type !== 'error' && (
+                                <span style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.5)' }}>
+                                  {executionResult.runtime_ms} ms{executionResult.memory_kb != null ? ` | ${executionResult.memory_kb} KB` : ''}
+                                </span>
+                              )}
                             </div>
+
+                            {executionResult.notice && (
+                              <div
+                                role="alert"
+                                data-testid="execution-notice"
+                                style={{
+                                  marginBottom: '8px',
+                                  padding: '8px 10px',
+                                  borderRadius: 'var(--radius-md)',
+                                  border: `1px solid ${executionResult.notice.tone === 'error' ? 'rgba(239, 68, 68, 0.5)' : 'rgba(245, 158, 11, 0.5)'}`,
+                                  background: executionResult.notice.tone === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                                  color: 'var(--color-ivory)',
+                                  whiteSpace: 'pre-wrap',
+                                }}
+                              >
+                                <strong>{executionResult.notice.title}.</strong> {executionResult.notice.message}
+                              </div>
+                            )}
 
                             {/* Compilation / Compiler Output */}
                             {executionResult.compile_output && (
@@ -612,14 +809,14 @@ export const CodingPracticePage = () => {
                                 {executionResult.stdout}
                               </div>
                             ) : (
-                              !executionResult.stderr && !executionResult.compile_output && (
+                              !executionResult.stderr && !executionResult.compile_output && !executionResult.notice && (
                                 <div style={{ color: 'rgba(244, 240, 231, 0.5)' }}>[No stdout produced]</div>
                               )
                             )}
                           </div>
                         ) : (
                           <div style={{ color: 'rgba(244, 240, 231, 0.4)', fontStyle: 'italic' }}>
-                            Click "Run Code" or "Submit" to execute solution in secure sandbox.
+                            Click "Run Code" to try your program on the custom input, or "Submit" to judge it.
                           </div>
                         )}
                       </div>
@@ -667,7 +864,7 @@ export const CodingPracticePage = () => {
                           </div>
                         ) : (
                           <div style={{ color: 'rgba(244, 240, 231, 0.4)', fontStyle: 'italic' }}>
-                            Click "Submit" to evaluate solution against all public and hidden test cases.
+                            Click "Submit" to judge your solution against the sample and hidden test cases.
                           </div>
                         )}
                       </div>
@@ -678,7 +875,8 @@ export const CodingPracticePage = () => {
                       <textarea
                         value={customStdin}
                         onChange={(e) => setCustomStdin(e.target.value)}
-                        placeholder="Provide custom stdin data to feed into your program..."
+                        aria-label="Custom input"
+                        placeholder="Type the input your program should read (stdin)..."
                         style={{
                           width: '100%',
                           height: '110px',
@@ -703,6 +901,7 @@ export const CodingPracticePage = () => {
       </main>
 
       <style>{`
+        .practice-workspace-grid > * { min-width: 0; }
         @media (max-width: 900px) {
           .practice-workspace-grid {
             grid-template-columns: 1fr !important;

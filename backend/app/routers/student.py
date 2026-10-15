@@ -1,144 +1,139 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import Optional
-from app.models.user import StudentProfile, UserOut, StudentDashboardData
+from datetime import datetime
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, Response
+
+from app.models.user import StudentDashboardData, StudentProfile, StudentSettings, UserOut
+from app.repositories import profiles, resumes, roadmaps, users
+from app.services import readiness_service, report_service
 from app.utils.security import require_student
-from app.database import db_manager
 
 router = APIRouter(prefix="/student", tags=["Students"])
 
+
+async def _snapshot(user_id: str) -> Dict[str, Any]:
+    """Everything the dashboard shows, computed from this student's stored records (a new student is all zeros)."""
+    doc = await users.get(user_id) or {}
+    raw = (await readiness_service.load_raw([{**doc, "id": user_id}]))[user_id]
+    result = readiness_service.compute(raw)
+    config = raw["config"]
+
+    total = active = 0
+    if config:
+        milestones = config.get("milestones", [])
+        progress = await roadmaps.get_progress(user_id, config.get("title", ""))
+        total = len(milestones)
+        active = next((m.get("number", i + 1) for i, m in enumerate(milestones) if progress.get(m["id"]) != "completed"), total)
+
+    assessments = sorted(raw["assessment_attempts"], key=lambda a: a.get("submitted_at") or datetime.min)
+    latest = assessments[-1] if assessments else None
+    resume_docs = await resumes.history(user_id, 30)
+    return {
+        "career_path": raw["career_path"],
+        "readiness_score": result["overall"],
+        "assessment_score": int(latest["overall_score"]) if latest else 0,
+        "assessments_completed": result["assessments_taken"],
+        "roadmap_progress": int(raw["roadmap_pct"] or 0),
+        "strong_skills": (latest or {}).get("strengths", []),
+        "gap_skills": (latest or {}).get("skill_gaps", []),
+        "active_milestone": active,
+        "total_milestones": total,
+        "result": result,
+        "score_history": readiness_service.score_history(assessments, resume_docs),
+        "resume_score": int(raw["resume_score"] or 0),
+    }
+
+
 @router.get("/profile", response_model=StudentProfile)
 async def get_profile(current_user: UserOut = Depends(require_student)):
-    user_id = current_user.id
+    # Start from the account itself, then layer the saved profile on top (a profile document
+    # created by a partial update may not carry every field).
+    base = {
+        "user_id": current_user.id,
+        "name": current_user.name,
+        "email": current_user.email,
+        "college": current_user.college,
+        "department": current_user.department,
+        "current_year": current_user.year,
+        "career_path": current_user.current_path,
+        "preferred_language": current_user.preferred_language,
+        "skill_level": current_user.skill_level,
+        "skills": current_user.strong_skills,
+    }
+    doc = await profiles.get(current_user.id) or {}
+    base.update({k: v for k, v in doc.items() if v is not None})
+    return StudentProfile(**base)
 
-    # Check MongoDB first
-    if db_manager.is_connected and db_manager.db is not None:
-        try:
-            profile_doc = await db_manager.db["student_profiles"].find_one({"user_id": user_id})
-            if profile_doc:
-                profile_doc.pop("_id", None)
-                return StudentProfile(**profile_doc)
-        except Exception:
-            pass
-
-    # Check in-memory store
-    profile = db_manager._memory_store["student_profiles"].get(user_id)
-    if not profile:
-        profile = {
-            "user_id": user_id,
-            "name": current_user.name,
-            "email": current_user.email,
-            "college": current_user.college or "Engineering College",
-            "department": current_user.department or "Computer Science & Engineering",
-            "current_year": current_user.year or "Final Year (2026)",
-            "career_path": current_user.current_path or "Backend Developer",
-            "preferred_language": current_user.preferred_language or "Python 3",
-            "skill_level": current_user.skill_level or "Intermediate",
-            "skills": current_user.strong_skills or ["Python", "SQL", "REST APIs"],
-            "target_companies": ["TCS", "Infosys", "Accenture"],
-        }
-        db_manager._memory_store["student_profiles"][user_id] = profile
-
-    p_copy = dict(profile)
-    p_copy.pop("_id", None)
-    return StudentProfile(**p_copy)
 
 @router.put("/profile", response_model=StudentProfile)
-async def update_profile(
-    updated: StudentProfile,
-    current_user: UserOut = Depends(require_student)
-):
-    user_id = current_user.id
-    profile_data = updated.dict()
-    profile_data["user_id"] = user_id
-    profile_data["email"] = current_user.email  # Preserve verified email
+async def update_profile(updated: StudentProfile, current_user: UserOut = Depends(require_student)):
+    profile_data = updated.model_dump()
+    profile_data["user_id"] = current_user.id
+    profile_data["email"] = current_user.email  # the verified email can't be edited here
 
-    db_manager._memory_store["student_profiles"][user_id] = dict(profile_data)
-
-    # Also update user record if name or path changed
-    if user_id in db_manager._memory_store["users"]:
-        db_manager._memory_store["users"][user_id]["name"] = updated.name
-        db_manager._memory_store["users"][user_id]["current_path"] = updated.career_path
-        db_manager._memory_store["users"][user_id]["college"] = updated.college
-        db_manager._memory_store["users"][user_id]["department"] = updated.department
-        db_manager._memory_store["users"][user_id]["year"] = updated.current_year
-        db_manager._memory_store["users"][user_id]["preferred_language"] = updated.preferred_language
-        db_manager._memory_store["users"][user_id]["skill_level"] = updated.skill_level
-
-    if db_manager.is_connected and db_manager.db is not None:
-        try:
-            await db_manager.db["student_profiles"].update_one(
-                {"user_id": user_id},
-                {"$set": dict(profile_data)},
-                upsert=True
-            )
-            await db_manager.db["users"].update_one(
-                {"id": user_id},
-                {"$set": {
-                    "name": updated.name,
-                    "current_path": updated.career_path,
-                    "college": updated.college,
-                    "department": updated.department,
-                    "year": updated.current_year,
-                }}
-            )
-        except Exception:
-            pass
-
+    await profiles.upsert(current_user.id, profile_data)
+    await users.update(current_user.id, {
+        "name": updated.name,
+        "current_path": updated.career_path,
+        "college": updated.college,
+        "department": updated.department,
+        "year": updated.current_year,
+        "preferred_language": updated.preferred_language,
+        "skill_level": updated.skill_level,
+    })
     return StudentProfile(**profile_data)
+
+
+@router.put("/settings")
+async def update_settings(body: StudentSettings, current_user: UserOut = Depends(require_student)):
+    """Email notifications for placement matches and deadlines (default off; sent only to a verified address)."""
+    await users.set_email_notifications(current_user.id, body.email_notifications)
+    return {"email_notifications": body.email_notifications, "email_verified": current_user.email_verified}
+
+
+@router.get("/report.pdf")
+async def download_report(current_user: UserOut = Depends(require_student)):
+    """The student's own career report as a PDF: readiness and its parts, strengths and gaps, latest ATS-style score and top fixes,
+    recommended courses. A student with no data gets a valid report that says so."""
+    pdf = report_service.build_pdf(await report_service.gather(current_user))
+    return Response(content=pdf, media_type="application/pdf", headers={"Content-Disposition": 'attachment; filename="skillsense-career-report.pdf"'})
+
 
 @router.get("/progress")
 async def get_student_progress(current_user: UserOut = Depends(require_student)):
-    user_id = current_user.id
-    user_dict = db_manager._memory_store["users"].get(user_id, {})
-
-    if db_manager.is_connected and db_manager.db is not None:
-        try:
-            db_user = await db_manager.db["users"].find_one({"id": user_id})
-            if db_user:
-                db_user.pop("_id", None)
-                user_dict = db_user
-        except Exception:
-            pass
-
+    snap = await _snapshot(current_user.id)
     return {
-        "readiness_score": user_dict.get("readiness_score", 87),
-        "skill_progress": user_dict.get("skill_progress", 74),
-        "assessments_completed": user_dict.get("assessments_completed", 1),
-        "strong_skills": user_dict.get("strong_skills", ["Python", "SQL", "REST APIs"]),
-        "gap_skills": user_dict.get("gap_skills", ["System Design", "Docker", "Kubernetes"]),
-        "active_milestone": 4,
-        "total_milestones": 10,
+        "readiness_score": snap["readiness_score"],
+        "readiness_parts": snap["result"]["parts"],
+        "streak_days": snap["result"]["streak_days"],
+        "skill_progress": snap["roadmap_progress"],
+        "assessments_completed": snap["assessments_completed"],
+        "strong_skills": snap["strong_skills"],
+        "gap_skills": snap["gap_skills"],
+        "active_milestone": snap["active_milestone"],
+        "total_milestones": snap["total_milestones"],
     }
+
 
 @router.get("/dashboard", response_model=StudentDashboardData)
 async def get_student_dashboard(current_user: UserOut = Depends(require_student)):
-    user_id = current_user.id
-    user_dict = db_manager._memory_store["users"].get(user_id, {})
-
-    if db_manager.is_connected and db_manager.db is not None:
-        try:
-            db_user = await db_manager.db["users"].find_one({"id": user_id})
-            if db_user:
-                db_user.pop("_id", None)
-                user_dict = db_user
-        except Exception:
-            pass
-
-    career_path = user_dict.get("current_path") or user_dict.get("career_interest") or "Backend Developer"
-    readiness = user_dict.get("readiness_score", 87)
-    progress = user_dict.get("skill_progress", 74)
-    assessments_count = user_dict.get("assessments_completed", 1)
-    strengths = user_dict.get("strong_skills", ["Python", "SQL", "REST APIs"])
-    skill_gaps = user_dict.get("gap_skills", ["System Design", "Docker", "Kubernetes"])
-
+    snap = await _snapshot(current_user.id)
     return StudentDashboardData(
-        career_path=career_path,
-        career_readiness=readiness,
-        assessment_score=84,
-        roadmap_progress=progress,
-        assessments_completed=assessments_count,
-        strengths=strengths,
-        skill_gaps=skill_gaps,
-        active_milestone=4,
-        total_milestones=10,
+        career_path=snap["career_path"],
+        career_readiness=snap["readiness_score"],
+        assessment_score=snap["assessment_score"],
+        roadmap_progress=snap["roadmap_progress"],
+        assessments_completed=snap["assessments_completed"],
+        strengths=snap["strong_skills"],
+        skill_gaps=snap["gap_skills"],
+        active_milestone=snap["active_milestone"],
+        total_milestones=snap["total_milestones"],
+        readiness_parts=snap["result"]["parts"],
+        score_history=snap["score_history"],
+        streak_days=snap["result"]["streak_days"],
+        active_days_14=snap["result"]["active_days_14"],
+        problems_solved=snap["result"]["problems_solved"],
+        problems_attempted=snap["result"]["problems_attempted"],
+        resume_score=snap["resume_score"],
+        has_data=snap["result"]["has_data"],
     )

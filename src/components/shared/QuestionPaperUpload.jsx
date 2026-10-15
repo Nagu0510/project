@@ -5,7 +5,11 @@ import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { useToast } from '../../context/ToastContext';
 import { adminService } from '../../services/adminService';
-import { mockCompaniesList, mockPaperTypes, mockYearsList } from '../../data/mockQuestionPapers';
+
+// Choices offered by the upload form (form options, not data)
+const PAPER_COMPANIES = ['TCS', 'Infosys', 'Wipro', 'Accenture', 'Cognizant', 'Capgemini', 'Deloitte', 'Amazon', 'Microsoft', 'Google', 'Other'];
+const PAPER_TYPES = ['Coding', 'Technical', 'Aptitude', 'MCQ', 'Mixed'];
+const PAPER_YEARS = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
 export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => {
   const { addToast } = useToast();
@@ -73,6 +77,11 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
       addToast('Please select a question paper file to upload.', 'error');
       return;
     }
+    if (file.rawFile.size > 8 * 1024 * 1024) {
+      setUploadError('The file is larger than the 8 MB limit.');
+      addToast('The file is larger than the 8 MB limit.', 'error');
+      return;
+    }
 
     setIsProcessing(true);
     setProcessingStep(0);
@@ -100,7 +109,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
         setIsProcessing(false);
         setIsCompleted(true);
         setUploadedResult(response);
-        addToast(`Paper analyzed! ${response.questions_count || 10} questions extracted.`, 'success');
+        addToast(`Paper read: ${response.questions_count ?? 0} questions are waiting for review.${response.ocr_used ? ` OCR confidence ${response.ocr_confidence}%.` : ''}`, response.warnings?.length ? 'warning' : 'success');
         if (onUploadComplete) {
           onUploadComplete(response);
         }
@@ -187,7 +196,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
             <input
               id="paper-file-input"
               type="file"
-              accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
+              accept=".pdf,.docx,.txt,.json,.png,.jpg,.jpeg,.webp" data-testid="paper-file-input"
               style={{ display: 'none' }}
               onChange={handleFileSelect}
             />
@@ -216,7 +225,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
                   or Browse files
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)', marginTop: '6px' }}>
-                  Supported formats: PDF · DOCX · TXT · PNG · JPG
+                  PDF · DOCX · TXT · JSON · PNG · JPG · WEBP, 8 MB at most. Scans and photos are read with OCR. Every extracted question starts as Needs Review.
                 </div>
               </div>
             ) : (
@@ -277,7 +286,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               label="Company"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              options={mockCompaniesList}
+              options={PAPER_COMPANIES}
               required
             />
 
@@ -293,7 +302,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               label="Year"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              options={mockYearsList}
+              options={PAPER_YEARS}
               required
             />
 
@@ -301,7 +310,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               label="Paper Type"
               value={paperType}
               onChange={(e) => setPaperType(e.target.value)}
-              options={mockPaperTypes}
+              options={PAPER_TYPES}
               required
             />
 

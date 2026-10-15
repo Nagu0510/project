@@ -8,7 +8,7 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
     name = 'Topic',
     appearances = 0,
     companies = [],
-    priority = 'High',
+    priority = '',
   } = topic || {};
 
   const safeCompanies = Array.isArray(companies) ? companies : [companies].filter(Boolean);
@@ -68,9 +68,11 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
             >
               {name}
             </h4>
-            <Badge variant={priority === 'High' ? 'lime' : 'neutral'} size="sm">
-              {priority} Priority
-            </Badge>
+            {priority && (
+              <Badge variant={priority === 'High' ? 'lime' : 'neutral'} size="sm">
+                {priority} Priority
+              </Badge>
+            )}
           </div>
 
           <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>

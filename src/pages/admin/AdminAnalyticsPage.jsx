@@ -1,12 +1,53 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AdminSidebar } from '../../components/admin/AdminSidebar';
-import { Button } from '../../components/common/Button';
-import { Badge } from '../../components/common/Badge';
+import { EmptyState } from '../../components/common/EmptyState';
+import { LoadingState } from '../../components/common/LoadingState';
 import { ProgressBar } from '../../components/common/ProgressBar';
-import { mockTopicFrequencies } from '../../data/mockPreviousQuestions';
-import { BarChart3, TrendingUp, Sparkles, Repeat, Layers } from 'lucide-react';
+import { adminService } from '../../services/adminService';
+
+const Panel = ({ title, children }) => (
+  <div
+    className="card-static"
+    style={{ padding: '1.75rem', backgroundColor: 'var(--color-white)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-border-subtle)', minWidth: 0 }}
+  >
+    <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: '0 0 1rem 0' }}>{title}</h3>
+    {children}
+  </div>
+);
+
+const Row = ({ label, value, percent, color }) => (
+  <div>
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '4px', fontSize: '0.85rem' }}>
+      <span style={{ fontWeight: 600, color: 'var(--color-deep-forest)' }}>{label}</span>
+      <span style={{ fontWeight: 700, color: 'var(--color-emerald)', whiteSpace: 'nowrap' }}>{value}</span>
+    </div>
+    <ProgressBar value={percent} color={color || 'var(--color-emerald)'} height="6px" />
+  </div>
+);
 
 export const AdminAnalyticsPage = () => {
+  const [analytics, setAnalytics] = useState(null); // null = loading
+  const [students, setStudents] = useState([]);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([adminService.getAdminAnalytics(), adminService.getStudents()])
+      .then(([a, s]) => { if (alive) { setAnalytics(a || {}); setStudents(Array.isArray(s) ? s : []); } })
+      .catch(() => { if (alive) { setFailed(true); setAnalytics({}); } });
+    return () => { alive = false; };
+  }, []);
+
+  // Cohort tiers are computed from the students who have taken at least one assessment
+  const assessed = students.filter((s) => s.assessments_completed > 0);
+  const tiers = [
+    { label: 'Above 85% readiness', color: '#10B981', count: assessed.filter((s) => s.readiness_score > 85).length },
+    { label: '70% to 85% readiness', color: 'var(--color-emerald)', count: assessed.filter((s) => s.readiness_score >= 70 && s.readiness_score <= 85).length },
+    { label: 'Below 70% readiness', color: '#F59E0B', count: assessed.filter((s) => s.readiness_score < 70).length },
+  ];
+  const topics = analytics?.topic_frequencies || [];
+  const topCount = Math.max(1, ...topics.map((t) => t.count));
+
   return (
     <div className="dashboard-layout">
       <AdminSidebar />
@@ -14,100 +55,57 @@ export const AdminAnalyticsPage = () => {
       <main className="dashboard-main">
         <div className="dashboard-content animate-fade-in">
           <div style={{ marginBottom: '2rem' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.4rem' }}>
-              <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)' }}>
-                System-Wide Intelligence Analytics
-              </span>
+            <div style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)', marginBottom: '0.4rem' }}>
+              ✦ System-wide analytics
             </div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-deep-forest)', margin: 0 }}>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 2.5rem)', color: 'var(--color-deep-forest)', margin: 0 }}>
               Question Recurrence & Placement Trends
             </h1>
             <p style={{ fontSize: '1rem', color: 'var(--color-charcoal-subtle)', marginTop: '4px' }}>
-              Deep statistical breakdown of cross-company repeated questions, candidate bottleneck topics, and drive trends.
+              Computed from the published question bank and from your students' assessment results.
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-            {/* Top Recurrent Topics */}
-            <div
-              className="card-static"
-              style={{
-                padding: '1.75rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--color-border-subtle)',
-              }}
-            >
-              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: '0 0 1rem 0' }}>
-                Cross-Exam Recurrence by Topic
-              </h3>
+          {analytics === null && <LoadingState message="Loading analytics..." subtitle="One moment" />}
+          {failed && <EmptyState title="Analytics are unavailable right now" description="They could not be loaded. Refresh to try again." />}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {mockTopicFrequencies.map((t) => (
-                  <div key={t.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-deep-forest)' }}>{t.name}</span>
-                      <span style={{ fontWeight: 700, color: 'var(--color-emerald)' }}>{t.appearances} appearances</span>
-                    </div>
-                    <ProgressBar value={(t.appearances / 30) * 100} color="var(--color-emerald)" height="6px" />
+          {analytics !== null && !failed && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))', gap: '1.5rem' }}>
+              <Panel title="Recurrence by topic">
+                {topics.length === 0 ? (
+                  <span style={{ color: 'var(--color-charcoal-subtle)', fontSize: '0.9rem' }}>No published questions yet, so there is nothing to count.</span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {topics.map((t) => (
+                      <Row key={t.topic} label={t.topic} value={`${t.count} ${t.count === 1 ? 'question' : 'questions'}`} percent={(t.count / topCount) * 100} />
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </Panel>
+
+              <Panel title="Student preparedness">
+                {assessed.length === 0 ? (
+                  <span style={{ color: 'var(--color-charcoal-subtle)', fontSize: '0.9rem' }}>
+                    No student has taken an assessment yet ({analytics.registered_students_count ?? 0} registered).
+                  </span>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {tiers.map((t) => (
+                      <Row key={t.label} label={t.label} color={t.color} percent={Math.round((t.count / assessed.length) * 100)}
+                        value={`${Math.round((t.count / assessed.length) * 100)}% (${t.count} ${t.count === 1 ? 'student' : 'students'})`} />
+                    ))}
+                    <div style={{ fontSize: '0.825rem', color: 'var(--color-muted-green)' }}>
+                      Average readiness of assessed students: <strong>{analytics.average_readiness_score ?? 0}%</strong>
+                    </div>
+                  </div>
+                )}
+              </Panel>
             </div>
-
-            {/* Candidate Readiness Distribution */}
-            <div
-              className="card-static"
-              style={{
-                padding: '1.75rem',
-                backgroundColor: 'var(--color-white)',
-                borderRadius: 'var(--radius-xl)',
-                border: '1px solid var(--color-border-subtle)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: '0 0 1rem 0' }}>
-                  Student Cohort Placement Preparedness
-                </h3>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-deep-forest)' }}>Tier-1 Ready (&gt;85% Score)</span>
-                      <span style={{ fontWeight: 700, color: '#059669' }}>34% (482 Students)</span>
-                    </div>
-                    <ProgressBar value={34} color="#10B981" height="6px" />
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-deep-forest)' }}>Placement Track Ready (70-85%)</span>
-                      <span style={{ fontWeight: 700, color: 'var(--color-emerald)' }}>48% (681 Students)</span>
-                    </div>
-                    <ProgressBar value={48} color="var(--color-emerald)" height="6px" />
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '0.85rem' }}>
-                      <span style={{ fontWeight: 600, color: 'var(--color-deep-forest)' }}>Requires Foundation Support (&lt;70%)</span>
-                      <span style={{ fontWeight: 700, color: '#D97706' }}>18% (257 Students)</span>
-                    </div>
-                    <ProgressBar value={18} color="#F59E0B" height="6px" />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-lime-soft)', borderRadius: 'var(--radius-md)', fontSize: '0.825rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
-                ✦ Cohort average readiness improved +14% over the last 30 days.
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
   );
 };
+
+export default AdminAnalyticsPage;

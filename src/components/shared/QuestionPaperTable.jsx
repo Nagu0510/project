@@ -180,7 +180,7 @@ export const QuestionPaperTable = ({
                       >
                         <Eye size={17} />
                       </button>
-                      <button
+                      {onEditPaper && (<button
                         onClick={() => onEditPaper(paper)}
                         style={{
                           background: 'none',
@@ -193,8 +193,8 @@ export const QuestionPaperTable = ({
                         title="Edit Details"
                       >
                         <Edit3 size={17} />
-                      </button>
-                      <button
+                      </button>)}
+                      {onDeletePaper && (<button
                         onClick={() => onDeletePaper(paper.id)}
                         style={{
                           background: 'none',
@@ -207,7 +207,7 @@ export const QuestionPaperTable = ({
                         title="Delete Paper"
                       >
                         <Trash2 size={17} />
-                      </button>
+                      </button>)}
                     </div>
                   </td>
                 </tr>

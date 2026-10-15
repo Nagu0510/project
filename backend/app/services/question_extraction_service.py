@@ -99,7 +99,7 @@ def extract_questions_from_json(paper_id: str, json_str: str, company: str, exam
                 topic=topic,
                 subtopic=subtopic,
                 difficulty=difficulty,
-                status="approved",
+                status="needs_review",
                 appearances_count=item.get("appearances", 1),
                 historical_occurrences=[{"company": company, "exam": exam, "year": str(year)}],
             )
@@ -182,7 +182,7 @@ def extract_questions_from_text(
                     topic=detected_topic,
                     subtopic=detected_subtopic,
                     difficulty=difficulty,
-                    status="approved",
+                    status="needs_review",
                     appearances_count=1,
                     historical_occurrences=[{"company": company, "exam": exam, "year": str(year)}],
                 )
@@ -220,7 +220,7 @@ def extract_questions_from_text(
                     topic=detected_topic,
                     subtopic=detected_subtopic,
                     difficulty=difficulty,
-                    status="approved",
+                    status="needs_review",
                     appearances_count=1,
                     historical_occurrences=[{"company": company, "exam": exam, "year": str(year)}],
                 )

@@ -23,41 +23,91 @@ import { Badge } from '../components/common/Badge';
 import { ProgressCircle } from '../components/common/ProgressCircle';
 import { ProgressBar } from '../components/common/ProgressBar';
 import { AIInsightCard } from '../components/shared/AIInsightCard';
+import { LoadingState } from '../components/common/LoadingState';
+import { NextSteps, ReadinessPanel, ScoreHistoryChart, StartHere } from '../components/dashboard/ReadinessPanel';
+import { learningService } from '../services/learningService';
+import { downloadFile } from '../utils/download';
+import { useToast } from '../context/ToastContext';
+import { RecommendationsCard } from '../components/learning/RecommendationsCard';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
-import { mockPlacementJobs } from '../data/mockPlacementJobs';
-import { mockPreviousQuestionsList } from '../data/mockPreviousQuestions';
+import { api } from '../services/api';
+
+const EmptyNote = ({ children }) => (
+  <div style={{ padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px dashed var(--color-border-medium)', color: 'var(--color-charcoal-subtle)', fontSize: '0.875rem', textAlign: 'center' }}>
+    {children}
+  </div>
+);
 
 export const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, isAuthLoading } = useAuth();
+  const [placements, setPlacements] = useState(null); // null = still loading
+  const [questions, setQuestions] = useState(null);
+  const [sideFailed, setSideFailed] = useState(false);
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [recs, setRecs] = useState(null);
+  const [recsFailed, setRecsFailed] = useState(false);
+  const [loadKey, setLoadKey] = useState(0); // bump to retry everything
+  const { addToast } = useToast();
+  const [downloading, setDownloading] = useState(false);
+
+  const downloadReport = async () => {
+    setDownloading(true);
+    try {
+      await downloadFile('/student/report.pdf', 'skillsense-career-report.pdf');
+      addToast('Your report was downloaded.', 'success');
+    } catch (err) {
+      addToast(err?.message || 'The report could not be downloaded. Please try again.', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const fetchDashboard = async () => {
     setLoading(true);
+    setError('');
     try {
-      const data = await studentService.getDashboard();
-      if (data) {
-        setDashboardData(data);
-      }
+      setDashboardData(await studentService.getDashboard());
     } catch (err) {
-      console.warn('Dashboard fetch notice:', err.message);
+      setError(err?.message || 'The dashboard could not be loaded.');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchRecs = () => {
+    setRecsFailed(false);
+    learningService.getRecommendations().then(setRecs).catch(() => setRecsFailed(true));
+  };
+
   useEffect(() => {
     fetchDashboard();
-  }, [user?.currentPath]);
+    fetchRecs();
+  }, [user?.currentPath, loadKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Real placement drives and previous questions (an empty list is shown as an empty state, never as sample data)
+  useEffect(() => {
+    if (isAuthLoading) return;
+    let alive = true;
+    setSideFailed(false);
+    api.get('/placements').then((rows) => alive && setPlacements([...rows].sort((a, b) => (b.match_percentage || 0) - (a.match_percentage || 0)))).catch(() => alive && (setPlacements([]), setSideFailed(true)));
+    api.get('/previous-questions').then((rows) => alive && setQuestions(rows)).catch(() => alive && (setQuestions([]), setSideFailed(true)));
+    return () => { alive = false; };
+  }, [isAuthLoading, loadKey]);
 
   const userName = user?.name ? user.name.split(' ')[0] : 'Student';
-  const currentPath = dashboardData?.career_path || user?.currentPath || user?.careerInterest || 'Backend Developer';
-  const readiness = dashboardData?.career_readiness ?? user?.readinessScore ?? 87;
-  const progress = dashboardData?.roadmap_progress ?? user?.skillProgress ?? 74;
-  const assessmentsCount = dashboardData?.assessments_completed ?? user?.assessmentsCompleted ?? 1;
-  const strengths = dashboardData?.strengths || user?.strongSkills || ['Python', 'SQL', 'FastAPI'];
-  const gaps = dashboardData?.skill_gaps || user?.gapSkills || ['System Design', 'Docker', 'Kubernetes'];
+  const currentPath = dashboardData?.career_path || user?.currentPath || user?.careerInterest || '';
+  // every number comes from the API (computed from this student's records); a new student gets zeros
+  const readiness = dashboardData?.career_readiness ?? 0;
+  const progress = dashboardData?.roadmap_progress ?? 0;
+  const assessmentsCount = dashboardData?.assessments_completed ?? 0;
+  const strengths = dashboardData?.strengths || [];
+  const gaps = dashboardData?.skill_gaps || [];
+  const parts = dashboardData?.readiness_parts || [];
+  const isNew = dashboardData ? !dashboardData.has_data : false;
+  const focusArea = gaps[0] || recs?.courses?.[0]?.title || '';
 
   return (
     <div className="dashboard-layout">
@@ -87,11 +137,14 @@ export const DashboardPage = () => {
                   marginBottom: 0,
                 }}
               >
-                Let's move your recruitment readiness forward on the <strong>{currentPath}</strong> track.
+                {currentPath ? <>Let's move your recruitment readiness forward on the <strong>{currentPath}</strong> track.</> : <>Choose a career path to get a roadmap and track your readiness.</>}
               </p>
             </div>
 
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <Button variant="outline" size="md" icon={FileText} onClick={downloadReport} loading={downloading} data-testid="download-report">
+                Download report
+              </Button>
               <Link to="/assessment">
                 <Button variant="primary" size="md" icon={ArrowUpRight} iconPosition="right">
                   Take Assessment
@@ -104,6 +157,16 @@ export const DashboardPage = () => {
               </Link>
             </div>
           </div>
+
+          {loading && !dashboardData && <LoadingState message="Loading your dashboard..." subtitle="One moment" />}
+          {error && (
+            <div role="alert" data-testid="dashboard-error" style={{ background: '#FEF2F2', border: '1.5px solid #F87171', borderRadius: 'var(--radius-xl)', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', color: '#991B1B' }}>
+              <span><strong>Your dashboard could not be loaded.</strong> {error}</span>
+              <Button variant="outline" size="sm" icon={RefreshCw} onClick={() => setLoadKey((k) => k + 1)}>Try again</Button>
+            </div>
+          )}
+
+          {dashboardData && <StartHere parts={parts} isNew={isNew} />}
 
           {/* =========================================================================
               4 TOP METRIC CARDS
@@ -133,11 +196,11 @@ export const DashboardPage = () => {
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-muted-green)', letterSpacing: '0.04em' }}>
                   Career Readiness
                 </div>
-                <div style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-deep-forest)', lineHeight: 1.1, marginTop: '4px' }}>
+                <div data-testid="readiness-score" style={{ fontFamily: 'var(--font-serif)', fontSize: '2.5rem', color: 'var(--color-deep-forest)', lineHeight: 1.1, marginTop: '4px' }}>
                   {readiness}%
                 </div>
                 <div style={{ fontSize: '0.78rem', color: 'var(--color-emerald)', fontWeight: 600, marginTop: '4px' }}>
-                  ✦ Top 12% Candidate
+                  {dashboardData?.has_data ? '✦ From your assessments, practice, resume and activity' : 'Nothing recorded yet: your score starts at 0'}
                 </div>
               </div>
               <ProgressCircle value={readiness} size={64} strokeWidth={6} />
@@ -161,15 +224,15 @@ export const DashboardPage = () => {
                   Selected Career Path
                 </div>
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.45rem', color: 'var(--color-deep-forest)', lineHeight: 1.2, marginTop: '4px' }}>
-                  {currentPath}
+                  {currentPath || 'Not selected yet'}
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px' }}>
                 <span style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)' }}>
-                  Active Pathway
+                  {currentPath ? 'Active Pathway' : 'Pick one to get a roadmap'}
                 </span>
                 <Link to="/career-paths" style={{ fontSize: '0.8rem', color: 'var(--color-emerald)', fontWeight: 700 }}>
-                  Switch Path →
+                  {currentPath ? 'Switch Path →' : 'Choose a Path →'}
                 </Link>
               </div>
             </div>
@@ -248,9 +311,9 @@ export const DashboardPage = () => {
           >
             {/* Section 9: AI Insight Card */}
             <AIInsightCard
-              headline={`You're strong in ${strengths.slice(0, 2).join(' and ')}.`}
-              gap={gaps[0] || 'System Design & Architecture'}
-              recommendation={`${currentPath} — Priority Skill Practice`}
+              headline={strengths.length ? `You're strong in ${strengths.slice(0, 2).join(' and ')}.` : 'Take your first assessment to see your strengths.'}
+              gap={gaps[0] || 'Take an assessment to find your skill gaps'}
+              recommendation={currentPath ? `${currentPath} — Priority Skill Practice` : 'Choose a career path to get a roadmap'}
               actionText="View Adaptive Roadmap →"
               actionLink="/roadmap"
             />
@@ -314,11 +377,11 @@ export const DashboardPage = () => {
                     marginBottom: '0.75rem',
                   }}
                 >
-                  2,840 previous questions analyzed
+                  Real placement questions, searchable
                 </h3>
 
                 <p style={{ fontSize: '0.885rem', color: 'var(--color-charcoal-subtle)', marginBottom: '1.25rem' }}>
-                  <strong style={{ color: 'var(--color-emerald)' }}>367 frequently repeated</strong> across TCS, Infosys, Accenture and Cognizant assessments.
+                  See which questions repeat across company assessments and practise them.
                 </p>
 
                 <div
@@ -334,7 +397,7 @@ export const DashboardPage = () => {
                     Top priority focus area:
                   </div>
                   <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-deep-forest)', marginTop: '2px' }}>
-                    {gaps[0] || 'DSA & Problem Solving'}
+                    {focusArea || 'Take an assessment to find your focus area'}
                   </div>
                 </div>
               </div>
@@ -347,6 +410,21 @@ export const DashboardPage = () => {
                 </Link>
               </div>
             </div>
+          </div>
+
+          {dashboardData && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+              <ReadinessPanel overall={readiness} parts={parts} streak={dashboardData.streak_days || 0} activeDays={dashboardData.active_days_14 || 0} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', minWidth: 0 }}>
+                <ScoreHistoryChart history={dashboardData.score_history || []} />
+                <NextSteps recs={recs} failed={recsFailed} onRetry={fetchRecs} />
+              </div>
+            </div>
+          )}
+
+          {/* Recommended courses and the 4-week study plan, from this student's own data */}
+          <div style={{ marginBottom: '2rem' }}>
+            <RecommendationsCard shared={{ data: recs, failed: recsFailed, retry: fetchRecs }} />
           </div>
 
           {/* =========================================================================
@@ -379,7 +457,8 @@ export const DashboardPage = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {mockPlacementJobs.slice(0, 3).map((job) => (
+                {placements !== null && placements.length === 0 && <EmptyNote>{sideFailed ? 'Placement drives could not be loaded.' : 'No placement drives are open right now.'}</EmptyNote>}
+                {(placements ?? []).slice(0, 3).map((job) => (
                   <Link
                     key={job.id}
                     to="/placement-tracker"
@@ -402,7 +481,7 @@ export const DashboardPage = () => {
                         {job.company} — {job.role}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-                        {job.package} · {job.status}
+                        {[job.package, job.status].filter(Boolean).join(' · ')}
                       </div>
                     </div>
 
@@ -414,7 +493,7 @@ export const DashboardPage = () => {
                           color: 'var(--color-emerald)',
                         }}
                       >
-                        {job.matchPercentage}% Match
+                        {job.match_percentage ?? 0}% Match
                       </span>
                     </div>
                   </Link>
@@ -442,10 +521,11 @@ export const DashboardPage = () => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {mockPreviousQuestionsList.slice(0, 3).map((q) => (
+                {questions !== null && questions.length === 0 && <EmptyNote>{sideFailed ? 'Previous questions could not be loaded.' : 'No previous questions have been published yet.'}</EmptyNote>}
+                {(questions ?? []).slice(0, 3).map((q) => (
                   <Link
                     key={q.id}
-                    to={`/practice?problem=${q.problemSlug}`}
+                    to={q.problem_slug ? `/practice?problem=${q.problem_slug}` : '/previous-questions'}
                     style={{
                       padding: '0.85rem 1rem',
                       borderRadius: 'var(--radius-md)',
@@ -464,11 +544,11 @@ export const DashboardPage = () => {
                         {q.title}
                       </div>
                       <div style={{ fontSize: '0.78rem', color: 'var(--color-emerald)', marginTop: '2px' }}>
-                        {q.examOrigin} · {q.topic}
+                        {[q.exam_origin, q.topic].filter(Boolean).join(' · ')}
                       </div>
                     </div>
 
-                    <Badge variant={q.badgeType === 'lime' ? 'lime' : 'emerald'} size="sm">
+                    <Badge variant="lime" size="sm">
                       {q.difficulty}
                     </Badge>
                   </Link>

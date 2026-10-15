@@ -1,0 +1,32 @@
+AARAV MEHTA
+aarav.mehta@example.com | +91 98765 43210
+linkedin.com/in/aarav-mehta | github.com/aarav-mehta
+
+SUMMARY
+Final year B.Tech student interested in backend engineering.
+
+SKILLS
+Languages: Python, Java, C, SQL
+Frameworks: FastAPI, Django
+Databases: MongoDB, PostgreSQL
+Tools: Git, Docker, Linux
+
+PROJECTS
+Library Management API | FastAPI, MongoDB
+- Built a REST API with FastAPI and MongoDB serving 500 requests per minute
+- Implemented JWT authentication with 3 user roles
+- Deployed the service with Docker on AWS EC2
+Placement Portal | Django, PostgreSQL
+- Designed 12 database tables and wrote 25 SQL queries for reports
+- Worked on the login page and some other features
+
+INTERNSHIP
+Backend Intern, Acme Software, Jun 2025 - Aug 2025
+- Reduced API response time by 35% by adding Redis caching
+- Wrote unit tests with pytest, raising coverage to 80%
+
+EDUCATION
+B.Tech in Computer Science, Example Institute of Technology, 2022-2026, CGPA 8.4/10
+
+CERTIFICATIONS
+AWS Cloud Practitioner (2025)

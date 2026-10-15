@@ -1,8 +1,19 @@
-import React, { useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useEffect, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Float, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { ThreeFallback } from './ThreeFallback';
+
+// Pull the camera back on narrow canvases so the floating labels (about +-2.6 units wide) are never clipped
+function FitWidth({ halfWidth = 2.8 }) {
+  const { camera, size } = useThree();
+  useEffect(() => {
+    const tan = Math.tan((camera.fov * Math.PI) / 360);
+    camera.position.z = Math.max(4.8, halfWidth / (tan * (size.width / size.height)));
+    camera.updateProjectionMatrix();
+  }, [camera, size, halfWidth]);
+  return null;
+}
 
 function DocumentCardMesh() {
   const cardRef = useRef();
@@ -81,6 +92,7 @@ export const ResumeScan3D = ({ className = '', style = {} }) => {
           dpr={[1, 2]}
           gl={{ antialias: true, alpha: true }}
         >
+          <FitWidth />
           <ambientLight intensity={0.9} />
           <directionalLight position={[3, 5, 3]} intensity={1.2} />
           <pointLight position={[-2, 2, 2]} intensity={0.7} color="#10B981" />

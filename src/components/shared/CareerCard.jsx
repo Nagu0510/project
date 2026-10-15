@@ -18,20 +18,18 @@ export const CareerCard = ({
   const slug = path.slug || path.id || "backend-developer";
   const description = path.description || "";
   const skills = path.required_skills || path.skills || path.requiredSkills || [];
-  const demand = path.demand_level || path.demandLevel || "High Demand";
-  const openings = path.active_openings || path.openings || 150;
-  const salary = path.average_salary || path.avgSalary || path.averageSalary || "₹8 LPA – ₹15 LPA";
+  const demand = path.demand_level || path.demandLevel || "";
+  const salary = path.average_salary || path.avgSalary || path.averageSalary || "";
 
   // Calculate dynamic match score if user skills present
-  let matchScore = path.match_percentage || path.matchScore || path.match_score;
+  // A match score exists only when the student has skills to compare; no baseline, no default
+  let matchScore = null;
   if (userSkills && userSkills.length > 0 && skills.length > 0) {
     const matchedCount = skills.filter((s) =>
       userSkills.some((us) => us.toLowerCase() === s.toLowerCase() || s.toLowerCase().includes(us.toLowerCase()))
     ).length;
     const computed = Math.round((matchedCount / skills.length) * 100);
-    matchScore = Math.max(computed, 65); // Realistic baseline
-  } else if (!matchScore) {
-    matchScore = 83;
+    matchScore = computed;
   }
 
   const handleChoose = async (e) => {
@@ -107,12 +105,13 @@ export const CareerCard = ({
                 )}
               </div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500, marginTop: '3px' }}>
-                {demand} · {openings}+ Openings
+                {demand}
               </div>
             </div>
           </div>
 
-          {/* Match Badge */}
+          {/* Match Badge (only with real skills to compare) */}
+          {matchScore !== null && (
           <div
             style={{
               display: 'inline-flex',
@@ -134,6 +133,7 @@ export const CareerCard = ({
             <span>✦</span>
             {matchScore}% Match
           </div>
+          )}
         </div>
 
         {/* Description */}
@@ -196,10 +196,7 @@ export const CareerCard = ({
         }}
       >
         <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-          Avg CTC:{' '}
-          <strong style={{ color: 'var(--color-forest)', fontWeight: 700 }}>
-            {salary}
-          </strong>
+          {salary && (<>Avg CTC:{' '}<strong style={{ color: 'var(--color-forest)', fontWeight: 700 }}>{salary}</strong></>)}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

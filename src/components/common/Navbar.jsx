@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { Avatar } from './Avatar';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
@@ -209,24 +210,7 @@ export const Navbar = () => {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <span
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    background: 'var(--color-forest)',
-                    color: 'var(--color-lime)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: 'var(--font-sans)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    flexShrink: 0,
-                  }}
-                >
-                  {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-                </span>
+                <Avatar user={user} size={28} />
                 <span
                   style={{
                     fontSize: '0.85rem',
@@ -337,12 +321,12 @@ export const Navbar = () => {
 
       {/* Responsive CSS */}
       <style>{`
-        @media (min-width: 1024px) {
+        @media (min-width: 769px) { /* single layout breakpoint: 768px, see src/utils/layout.js */
           .desktop-nav-links { display: flex !important; }
           .desktop-actions { display: flex !important; }
           .mobile-menu-btn { display: none !important; }
         }
-        @media (max-width: 1023px) {
+        @media (max-width: 768px) {
           .desktop-nav-links { display: none !important; }
           .desktop-actions { display: none !important; }
           .mobile-menu-btn { display: flex !important; }

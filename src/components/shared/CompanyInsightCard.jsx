@@ -11,11 +11,10 @@ export const CompanyInsightCard = ({
   if (!companyData) return null;
 
   const {
-    name,
-    shortName,
-    analyzedQuestionsCount = 120,
-    topTopics = ["DSA", "Aptitude", "Java", "SQL"],
-    aiInsight,
+    name = '',
+    shortName = name,
+    analyzedQuestionsCount = 0,
+    topTopics = [],
   } = companyData;
 
   return (
@@ -63,23 +62,11 @@ export const CompanyInsightCard = ({
                 {shortName}
               </h3>
               <span style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)' }}>
-                {analyzedQuestionsCount} analyzed questions
+                {analyzedQuestionsCount} {analyzedQuestionsCount === 1 ? 'question' : 'questions'} analysed
               </span>
             </div>
           </div>
 
-          <span
-            style={{
-              padding: '4px 8px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-lime-soft)',
-              color: 'var(--color-deep-forest)',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-            }}
-          >
-            Verified Drive
-          </span>
         </div>
 
         <div style={{ marginBottom: '1.25rem' }}>

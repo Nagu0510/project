@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useMobileSidebar } from '../../hooks/useMobileLayout';
+import { MobileSidebarChrome } from '../common/MobileSidebarChrome';
 import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileSpreadsheet,
   Database,
+  PencilRuler,
   FileCheck2,
   Building2,
   Users,
@@ -24,7 +27,7 @@ export const AdminSidebar = () => {
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { isMobile, open: mobileOpen, setOpen: setMobileOpen, close: closeMobile, toggle: toggleMobile } = useMobileSidebar();
 
   const handleLogout = () => {
     logout();
@@ -37,6 +40,7 @@ export const AdminSidebar = () => {
     { label: 'Question Papers', path: '/admin/question-papers', icon: FileSpreadsheet, badge: 'Active' },
     { label: 'Question Bank', path: '/admin/question-bank', icon: Database },
     { label: 'Assessments', path: '/admin/assessments', icon: FileCheck2 },
+    { label: 'Content Editor', path: '/admin/content', icon: PencilRuler },
     { label: 'Companies', path: '/admin/companies', icon: Building2 },
     { label: 'Students', path: '/admin/students', icon: Users },
     { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
@@ -48,85 +52,10 @@ export const AdminSidebar = () => {
 
   return (
     <>
-      {/* Mobile Top Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.85rem 1.25rem',
-          backgroundColor: 'var(--color-white)',
-          borderBottom: '1px solid var(--color-border-subtle)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 90,
-        }}
-        className="mobile-dashboard-header"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: 'var(--color-deep-forest)',
-              color: 'var(--color-lime)',
-              fontSize: '1rem',
-            }}
-          >
-            ✦
-          </span>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--color-deep-forest)' }}>
-            SkillSense Admin
-          </span>
-        </div>
+      {isMobile && <MobileSidebarChrome title="SkillSense Admin" open={mobileOpen} onToggle={toggleMobile} onClose={closeMobile} />}
 
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--color-deep-forest)',
-            cursor: 'pointer',
-            padding: '4px',
-          }}
-        >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-
-      {/* Backdrop for mobile */}
-      {mobileOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(6, 46, 37, 0.4)',
-            zIndex: 95,
-          }}
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Admin Sidebar Container */}
-      <aside
-        className={`sidebar-container ${mobileOpen ? 'mobile-open' : ''}`}
-        style={{
-          width: 'var(--sidebar-width)',
-          height: '100vh',
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'var(--color-white)',
-          borderRight: '1px solid var(--color-border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 100,
-          transition: 'transform 0.25s ease',
-        }}
-      >
+            {/* Admin Sidebar Container */}
+      <aside className={`app-sidebar ${mobileOpen ? 'open' : ''}`} aria-label="Main navigation">
         {/* Admin Brand Header */}
         <div
           style={{
