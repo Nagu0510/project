@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useMobileSidebar } from '../../hooks/useMobileLayout';
+import { MobileSidebarChrome } from '../common/MobileSidebarChrome';
+import { ThemeToggle } from '../common/ThemeToggle';
 import { NavLink, useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   FileSpreadsheet,
   Database,
+  PencilRuler,
   FileCheck2,
   Building2,
   Users,
@@ -24,7 +28,7 @@ export const AdminSidebar = () => {
   const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { isMobile, open: mobileOpen, setOpen: setMobileOpen, close: closeMobile, toggle: toggleMobile } = useMobileSidebar();
 
   const handleLogout = () => {
     logout();
@@ -37,6 +41,7 @@ export const AdminSidebar = () => {
     { label: 'Question Papers', path: '/admin/question-papers', icon: FileSpreadsheet, badge: 'Active' },
     { label: 'Question Bank', path: '/admin/question-bank', icon: Database },
     { label: 'Assessments', path: '/admin/assessments', icon: FileCheck2 },
+    { label: 'Content Editor', path: '/admin/content', icon: PencilRuler },
     { label: 'Companies', path: '/admin/companies', icon: Building2 },
     { label: 'Students', path: '/admin/students', icon: Users },
     { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
@@ -48,85 +53,10 @@ export const AdminSidebar = () => {
 
   return (
     <>
-      {/* Mobile Top Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.85rem 1.25rem',
-          backgroundColor: 'var(--color-white)',
-          borderBottom: '1px solid var(--color-border-subtle)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 90,
-        }}
-        className="mobile-dashboard-header"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: 'var(--color-deep-forest)',
-              color: 'var(--color-lime)',
-              fontSize: '1rem',
-            }}
-          >
-            ✦
-          </span>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--color-deep-forest)' }}>
-            SkillSense Admin
-          </span>
-        </div>
+      {isMobile && <MobileSidebarChrome title="SkillSense Admin" open={mobileOpen} onToggle={toggleMobile} onClose={closeMobile} />}
 
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--color-deep-forest)',
-            cursor: 'pointer',
-            padding: '4px',
-          }}
-        >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-
-      {/* Backdrop for mobile */}
-      {mobileOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(6, 46, 37, 0.4)',
-            zIndex: 95,
-          }}
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Admin Sidebar Container */}
-      <aside
-        className={`sidebar-container ${mobileOpen ? 'mobile-open' : ''}`}
-        style={{
-          width: 'var(--sidebar-width)',
-          height: '100vh',
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'var(--color-white)',
-          borderRight: '1px solid var(--color-border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 100,
-          transition: 'transform 0.25s ease',
-        }}
-      >
+            {/* Admin Sidebar Container */}
+      <aside className={`app-sidebar ${mobileOpen ? 'open' : ''}`} aria-label="Main navigation">
         {/* Admin Brand Header */}
         <div
           style={{
@@ -148,7 +78,7 @@ export const AdminSidebar = () => {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '1.15rem',
-              boxShadow: '0 2px 8px rgba(6, 46, 37, 0.25)',
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             ✦
@@ -158,7 +88,7 @@ export const AdminSidebar = () => {
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: '1.35rem',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
                 lineHeight: 1.1,
               }}
             >
@@ -171,8 +101,8 @@ export const AdminSidebar = () => {
                   fontWeight: 800,
                   textTransform: 'uppercase',
                   letterSpacing: '0.04em',
-                  color: 'var(--color-deep-forest)',
-                  backgroundColor: 'var(--color-lime-soft)',
+                  color: 'var(--text)',
+                  backgroundColor: 'var(--lime-soft)',
                   padding: '1px 6px',
                   borderRadius: '4px',
                 }}
@@ -181,6 +111,7 @@ export const AdminSidebar = () => {
               </span>
             </div>
           </div>
+          {!isMobile && <div style={{ marginLeft: 'auto' }}><ThemeToggle /></div>}
         </div>
 
         {/* Navigation List */}
@@ -222,29 +153,29 @@ export const AdminSidebar = () => {
                   justifyContent: 'space-between',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
-                  color: isActive ? 'var(--color-emerald)' : 'var(--color-charcoal-subtle)',
-                  backgroundColor: isActive ? 'var(--color-emerald-alpha)' : 'transparent',
+                  color: isActive ? 'var(--accent)' : 'var(--text)',
+                  backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
                   fontWeight: isActive ? 600 : 500,
                   fontSize: '0.885rem',
                   textDecoration: 'none',
                   transition: 'all 0.15s ease',
-                  border: isActive ? '1px solid rgba(15, 118, 110, 0.18)' : '1px solid transparent',
+                  border: isActive ? '1px solid var(--accent-soft-strong)' : '1px solid transparent',
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'var(--color-ivory-surface)';
-                    e.currentTarget.style.color = 'var(--color-deep-forest)';
+                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                    e.currentTarget.style.color = 'var(--text)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--color-charcoal-subtle)';
+                    e.currentTarget.style.color = 'var(--text)';
                   }
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Icon size={18} color={isActive ? 'var(--color-emerald)' : 'var(--color-muted-green)'} />
+                  <Icon size={18} color={isActive ? 'var(--accent)' : 'var(--color-muted-green)'} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
@@ -254,8 +185,8 @@ export const AdminSidebar = () => {
                       fontWeight: 700,
                       padding: '2px 6px',
                       borderRadius: 'var(--radius-full)',
-                      backgroundColor: 'rgba(15, 118, 110, 0.12)',
-                      color: 'var(--color-emerald)',
+                      backgroundColor: 'var(--lime-soft)',
+                      color: 'var(--text)',
                     }}
                   >
                     {item.badge}
@@ -293,16 +224,16 @@ export const AdminSidebar = () => {
                   gap: '10px',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
-                  color: isActive ? 'var(--color-emerald)' : 'var(--color-charcoal-subtle)',
-                  backgroundColor: isActive ? 'var(--color-emerald-alpha)' : 'transparent',
+                  color: isActive ? 'var(--accent)' : 'var(--text)',
+                  backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
                   fontWeight: isActive ? 600 : 500,
                   fontSize: '0.885rem',
                   textDecoration: 'none',
                   transition: 'all 0.15s ease',
-                  border: isActive ? '1px solid rgba(15, 118, 110, 0.18)' : '1px solid transparent',
+                  border: isActive ? '1px solid var(--accent-soft-strong)' : '1px solid transparent',
                 }}
               >
-                <Icon size={18} color={isActive ? 'var(--color-emerald)' : 'var(--color-muted-green)'} />
+                <Icon size={18} color={isActive ? 'var(--accent)' : 'var(--color-muted-green)'} />
                 <span>{item.label}</span>
               </NavLink>
             );
@@ -318,11 +249,11 @@ export const AdminSidebar = () => {
                 justifyContent: 'space-between',
                 padding: '0.55rem 0.75rem',
                 borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--color-ivory-surface)',
+                backgroundColor: 'var(--surface)',
                 border: '1px solid var(--color-border-subtle)',
                 fontSize: '0.78rem',
                 fontWeight: 600,
-                color: 'var(--color-emerald)',
+                color: 'var(--accent)',
                 textDecoration: 'none',
               }}
             >
@@ -337,7 +268,7 @@ export const AdminSidebar = () => {
           style={{
             padding: '1rem 1.15rem',
             borderTop: '1px solid var(--color-border-subtle)',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -366,7 +297,7 @@ export const AdminSidebar = () => {
                 style={{
                   fontSize: '0.85rem',
                   fontWeight: 700,
-                  color: 'var(--color-deep-forest)',
+                  color: 'var(--text)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',

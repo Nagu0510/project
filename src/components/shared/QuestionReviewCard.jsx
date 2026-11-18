@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Edit, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Check, Edit, Trash2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
 import { useToast } from '../../context/ToastContext';
@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 export const QuestionReviewCard = ({
   question,
   onApprove,
+  onReject,
   onEdit,
   onDelete,
   className = '',
@@ -16,10 +17,22 @@ export const QuestionReviewCard = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(question.title);
 
-  const handleApprove = () => {
-    setCurrentStatus('Approved');
-    addToast(`Question #${question.number} approved!`, 'success');
-    if (onApprove) onApprove(question.id);
+  const handleApprove = async () => {
+    try {
+      if (onApprove) await onApprove(question.id);
+      setCurrentStatus('Approved');
+    } catch {
+      // the page already told the admin why; the card stays in its current state
+    }
+  };
+
+  const handleReject = async () => {
+    try {
+      if (onReject) await onReject(question.id);
+      setCurrentStatus('Rejected');
+    } catch {
+      // the page already told the admin why
+    }
   };
 
   const handleSaveEdit = () => {
@@ -30,11 +43,13 @@ export const QuestionReviewCard = ({
 
   return (
     <div
+      data-testid="review-card"
+      data-status={currentStatus}
       className={`card-floating ${className}`}
       style={{
         padding: '1.5rem',
         borderRadius: 'var(--radius-xl)',
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         border: '1px solid var(--color-border-subtle)',
         marginBottom: '1rem',
       }}
@@ -46,8 +61,8 @@ export const QuestionReviewCard = ({
             style={{
               fontSize: '0.85rem',
               fontWeight: 800,
-              color: 'var(--color-emerald)',
-              backgroundColor: 'var(--color-lime-soft)',
+              color: 'var(--accent)',
+              backgroundColor: 'var(--lime-soft)',
               padding: '2px 8px',
               borderRadius: 'var(--radius-sm)',
             }}
@@ -62,6 +77,16 @@ export const QuestionReviewCard = ({
         <Badge variant={currentStatus}>{currentStatus}</Badge>
       </div>
 
+      {question.low_confidence && (
+        <div
+          role="note"
+          data-testid="low-confidence"
+          style={{ marginBottom: '0.85rem', padding: '6px 10px', borderRadius: 'var(--radius-md)', background: 'var(--warning-soft)', color: 'var(--warning-text)', fontSize: '0.8rem', fontWeight: 600 }}
+        >
+          Read from a scan with low OCR confidence ({question.ocr_confidence}%). Check the wording against the original before approving.
+        </div>
+      )}
+
       {/* Question Title / Edit Input */}
       {isEditing ? (
         <div style={{ marginBottom: '1rem' }}>
@@ -73,7 +98,7 @@ export const QuestionReviewCard = ({
               width: '100%',
               padding: '0.65rem 0.85rem',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--color-emerald)',
+              border: '1px solid var(--accent)',
               fontSize: '0.925rem',
               outline: 'none',
               fontFamily: 'inherit',
@@ -93,7 +118,7 @@ export const QuestionReviewCard = ({
           style={{
             fontSize: '1.15rem',
             fontFamily: 'var(--font-serif)',
-            color: 'var(--color-deep-forest)',
+            color: 'var(--text)',
             lineHeight: 1.35,
             marginBottom: '1rem',
           }}
@@ -116,29 +141,29 @@ export const QuestionReviewCard = ({
           style={{
             padding: '3px 8px',
             borderRadius: '4px',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             border: '1px solid var(--color-border-subtle)',
           }}
         >
-          Topic: <strong style={{ color: 'var(--color-deep-forest)' }}>{question.topic}</strong>
+          Topic: <strong style={{ color: 'var(--text)' }}>{question.topic}</strong>
         </div>
         {question.subtopic && (
           <div
             style={{
               padding: '3px 8px',
               borderRadius: '4px',
-              backgroundColor: 'var(--color-ivory-surface)',
+              backgroundColor: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
             }}
           >
-            Subtopic: <strong style={{ color: 'var(--color-emerald)' }}>{question.subtopic}</strong>
+            Subtopic: <strong style={{ color: 'var(--accent)' }}>{question.subtopic}</strong>
           </div>
         )}
         <div
           style={{
             padding: '3px 8px',
             borderRadius: '4px',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             border: '1px solid var(--color-border-subtle)',
           }}
         >
@@ -148,11 +173,11 @@ export const QuestionReviewCard = ({
           style={{
             padding: '3px 8px',
             borderRadius: '4px',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             border: '1px solid var(--color-border-subtle)',
           }}
         >
-          Type: <strong style={{ color: 'var(--color-deep-forest)' }}>{question.type}</strong>
+          Type: <strong style={{ color: 'var(--text)' }}>{question.type}</strong>
         </div>
       </div>
 
@@ -167,7 +192,7 @@ export const QuestionReviewCard = ({
           gap: '0.5rem',
         }}
       >
-        {currentStatus !== 'Approved' && (
+        {currentStatus !== 'Approved' && currentStatus !== 'Published' && onApprove && (
           <Button
             variant="lime"
             size="sm"
@@ -177,26 +202,21 @@ export const QuestionReviewCard = ({
             Approve
           </Button>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsEditing(!isEditing)}
-          icon={Edit}
-        >
-          Edit
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            if (onDelete) onDelete(question.id);
-            addToast(`Question #${question.number} deleted.`, 'info');
-          }}
-          icon={Trash2}
-          style={{ color: 'var(--color-error)' }}
-        >
-          Delete
-        </Button>
+        {currentStatus !== 'Rejected' && onReject && (
+          <Button variant="outline" size="sm" onClick={handleReject} icon={X}>
+            Reject
+          </Button>
+        )}
+        {onEdit && (
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)} icon={Edit}>
+            Edit
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="ghost" size="sm" onClick={() => onDelete(question.id)} icon={Trash2} style={{ color: 'var(--color-error)' }}>
+            Delete
+          </Button>
+        )}
       </div>
     </div>
   );

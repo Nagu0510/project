@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/common/Navbar';
+import { GoogleAuth } from '../components/common/GoogleAuth';
+import { isStrongPassword, PASSWORD_HINT } from '../utils/password';
 
 const CAREER_PATHS = [
   'Frontend Developer', 'Backend Developer', 'Full Stack Developer',
@@ -14,17 +16,21 @@ export const SignupPage = () => {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '', careerInterest: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const { signup, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const update = (key) => (e) => setForm((p) => ({ ...p, [key]: e.target.value }));
+
+  // a new page visit never starts with the previous attempt's error
+  useEffect(() => { setError(''); }, [location.key]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     if (!form.name.trim() || !form.email.trim() || !form.password.trim()) { setError('Please fill in all required fields.'); return; }
     if (form.password !== form.confirmPassword) { setError('Passwords do not match.'); return; }
-    if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (!isStrongPassword(form.password)) { setError(PASSWORD_HINT); return; }
     setLoading(true);
     try {
       const result = await signup(form.name.trim(), form.email.trim(), form.password, form.careerInterest || 'Backend Developer');
@@ -36,8 +42,18 @@ export const SignupPage = () => {
     }
   };
 
+  const handleGoogle = async (credential) => {
+    setError('');
+    try {
+      const result = await googleLogin(credential);
+      if (result?.success) navigate('/dashboard');
+    } catch (err) {
+      setError(err?.message || 'Google sign-in failed. Please try again.');
+    }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 'calc(100vh - 68px)' }} className="auth-grid">
         <div style={{ background: 'var(--color-forest)', padding: '4rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
@@ -46,14 +62,14 @@ export const SignupPage = () => {
             <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 400, color: 'var(--color-ivory)', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: '1rem' }}>
               Start your<br /><em style={{ color: 'var(--color-lime)' }}>career journey.</em>
             </h1>
-            <p style={{ color: 'rgba(244, 240, 231, 0.65)', fontSize: '1.05rem', lineHeight: 1.7, maxWidth: '380px', marginBottom: '2rem' }}>
+            <p style={{ color: 'var(--on-dark-muted)', fontSize: '1.05rem', lineHeight: 1.7, maxWidth: '380px', marginBottom: '2rem' }}>
               Free assessment, AI-powered roadmap, resume intelligence, and real placement question bank.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
               {['Personalized skill assessment', 'AI-powered career roadmap', 'Resume intelligence and ATS analysis', 'Real placement question bank'].map((feat) => (
                 <div key={feat} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-lime)', flexShrink: 0 }} />
-                  <span style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.9rem' }}>{feat}</span>
+                  <span style={{ color: 'var(--on-dark-muted)', fontSize: '0.9rem' }}>{feat}</span>
                 </div>
               ))}
             </div>
@@ -62,9 +78,9 @@ export const SignupPage = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 2rem', overflowY: 'auto' }}>
           <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} style={{ width: '100%', maxWidth: '440px' }}>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.025em', marginBottom: '0.5rem' }}>Create account</h2>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.025em', marginBottom: '0.5rem' }}>Create account</h2>
             <p style={{ color: 'var(--color-text-muted)', marginBottom: '2rem' }}>
-              Already have one? <Link to="/login" style={{ color: 'var(--color-emerald)', fontWeight: 600 }}>Sign in</Link>
+              Already have one? <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>Sign in</Link>
             </p>
 
             {error && (
@@ -91,7 +107,7 @@ export const SignupPage = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">Password *</label>
-                <input type="password" autoComplete="new-password" className="form-input" placeholder="At least 6 characters" value={form.password} onChange={update('password')} required />
+                <input type="password" autoComplete="new-password" className="form-input" placeholder="8+ characters, with a letter and a number" value={form.password} onChange={update('password')} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Confirm Password *</label>
@@ -101,6 +117,8 @@ export const SignupPage = () => {
                 {loading ? 'Creating account...' : 'Create Free Account →'}
               </button>
             </form>
+
+            <GoogleAuth text="signup_with" onCredential={handleGoogle} onError={setError} />
           </motion.div>
         </div>
       </div>

@@ -38,7 +38,7 @@ export const Modal = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1rem',
-        backgroundColor: 'rgba(6, 46, 37, 0.45)',
+        backgroundColor: 'var(--overlay)',
         backdropFilter: 'blur(6px)',
         animation: 'fadeIn 0.2s ease-out',
       }}
@@ -51,7 +51,7 @@ export const Modal = ({
         style={{
           width: '100%',
           maxWidth,
-          backgroundColor: 'var(--color-white)',
+          backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-xl)',
           border: '1px solid var(--color-border-subtle)',
           boxShadow: 'var(--shadow-xl)',
@@ -71,7 +71,7 @@ export const Modal = ({
               alignItems: 'flex-start',
               justifyContent: 'space-between',
               gap: '1rem',
-              backgroundColor: 'var(--color-ivory-surface)',
+              backgroundColor: 'var(--surface)',
             }}
           >
             <div>
@@ -80,7 +80,7 @@ export const Modal = ({
                   style={{
                     fontSize: '1.25rem',
                     fontFamily: 'var(--font-serif)',
-                    color: 'var(--color-deep-forest)',
+                    color: 'var(--text)',
                     margin: 0,
                   }}
                 >
@@ -116,7 +116,7 @@ export const Modal = ({
                   justifyContent: 'center',
                   transition: 'background 0.15s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-ivory-muted)')}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-subtle)')}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
                 <X size={18} />

@@ -45,8 +45,8 @@ export const AuthModal = () => {
             width: '54px',
             height: '54px',
             borderRadius: 'var(--radius-full)',
-            backgroundColor: 'var(--color-lime-soft)',
-            color: 'var(--color-deep-forest)',
+            backgroundColor: 'var(--lime-soft)',
+            color: 'var(--text)',
             display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -62,7 +62,7 @@ export const AuthModal = () => {
           style={{
             fontFamily: 'var(--font-serif)',
             fontSize: 'clamp(1.75rem, 3.5vw, 2.15rem)',
-            color: 'var(--color-deep-forest)',
+            color: 'var(--text)',
             margin: '0 0 0.5rem 0',
             lineHeight: 1.15,
           }}
@@ -73,7 +73,7 @@ export const AuthModal = () => {
         <p
           style={{
             fontSize: '0.925rem',
-            color: 'var(--color-charcoal-subtle)',
+            color: 'var(--text)',
             margin: '0 auto 1.5rem',
             maxWidth: '420px',
             lineHeight: 1.5,
@@ -85,7 +85,7 @@ export const AuthModal = () => {
         {/* Benefits Checklist */}
         <div
           style={{
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             border: '1px solid var(--color-border-subtle)',
             borderRadius: 'var(--radius-xl)',
             padding: '1.25rem 1.5rem',
@@ -96,13 +96,13 @@ export const AuthModal = () => {
             gap: '10px',
           }}
         >
-          <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-emerald)', letterSpacing: '0.04em' }}>
+          <div style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--accent)', letterSpacing: '0.04em' }}>
             With your free student account you can:
           </div>
 
           {features.map((feat, idx) => (
-            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '0.865rem', color: 'var(--color-deep-forest)', fontWeight: 500 }}>
-              <span style={{ color: 'var(--color-emerald)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--color-lime-soft)', flexShrink: 0, fontSize: '0.75rem', fontWeight: 800 }}>
+            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '9px', fontSize: '0.865rem', color: 'var(--text)', fontWeight: 500 }}>
+              <span style={{ color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', backgroundColor: 'var(--lime-soft)', flexShrink: 0, fontSize: '0.75rem', fontWeight: 800 }}>
                 ✓
               </span>
               <span>{feat}</span>

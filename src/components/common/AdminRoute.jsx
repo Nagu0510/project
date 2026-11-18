@@ -16,7 +16,7 @@ export const AdminRoute = ({ children }) => {
 
   if (isAuthLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-warm-ivory)' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--bg)' }}>
         <LoadingState message="Verifying administrator credentials..." />
       </div>
     );

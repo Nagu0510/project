@@ -42,22 +42,22 @@ export const ToastProvider = ({ children }) => {
         }}
       >
         {toasts.map((toast) => {
-          let bg = 'var(--color-white)';
-          let border = 'var(--color-border-subtle)';
-          let iconColor = 'var(--color-emerald)';
+          let bg = 'var(--surface-raised)';
+          let border = 'var(--border-mid)';
+          let iconColor = 'var(--accent)';
           let Icon = Info;
 
           if (toast.type === 'success') {
-            border = 'rgba(16, 185, 129, 0.3)';
-            iconColor = '#10B981';
+            border = 'var(--success-border)';
+            iconColor = 'var(--success)';
             Icon = CheckCircle2;
           } else if (toast.type === 'error') {
-            border = 'rgba(239, 68, 68, 0.3)';
-            iconColor = '#EF4444';
+            border = 'var(--danger-border)';
+            iconColor = 'var(--danger)';
             Icon = AlertCircle;
           } else if (toast.type === 'warning') {
-            border = 'rgba(245, 158, 11, 0.3)';
-            iconColor = '#F59E0B';
+            border = 'var(--warning-border)';
+            iconColor = 'var(--warning)';
             Icon = AlertTriangle;
           }
 
@@ -80,7 +80,7 @@ export const ToastProvider = ({ children }) => {
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Icon size={18} color={iconColor} style={{ flexShrink: 0 }} />
-                <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-deep-forest)' }}>
+                <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text)' }}>
                   {toast.message}
                 </span>
               </div>

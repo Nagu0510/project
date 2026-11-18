@@ -79,7 +79,7 @@ ASSESSMENT_QUESTION_BANK = [
         "difficulty": "Medium",
         "question_type": "Code Output",
         "question_text": "What will `def append_to(num, target=[]): target.append(num); return target\nprint(append_to(1)); print(append_to(2))` output?",
-        "options": ["[1] then [2]", "[1] then [1, 2]", "[1] then [2, 1]", "TypeError"],
+        "options": ["[1]\n[2]", "[1]\n[1, 2]", "[1]\n[2, 1]", "TypeError"],
         "correct_option_index": 1,
         "explanation": "Default arguments in Python are evaluated once when the function is defined. A mutable default like `target=[]` persists across successive calls.",
     },
@@ -239,7 +239,7 @@ ASSESSMENT_QUESTION_BANK = [
         "difficulty": "Hard",
         "question_type": "Code Output",
         "question_text": "What is the execution order of: `console.log('1'); setTimeout(() => console.log('2'), 0); Promise.resolve().then(() => console.log('3')); console.log('4');`?",
-        "options": ["1, 2, 3, 4", "1, 4, 3, 2", "1, 4, 2, 3", "3, 1, 4, 2"],
+        "options": ["1\n2\n3\n4", "1\n4\n3\n2", "1\n4\n2\n3", "3\n1\n4\n2"],
         "correct_option_index": 1,
         "explanation": "Synchronous code runs first ('1', '4'). Next, the microtask queue (Promise `.then`) drains ('3'). Finally, the macrotask queue (`setTimeout`) runs ('2').",
     },
@@ -573,9 +573,9 @@ ASSESSMENT_SETS = [
         "skill": "React",
         "career_path": "Frontend Developer",
         "difficulty": "Medium",
-        "questions_count": 4,
+        "questions_count": 3,
         "duration_minutes": 20,
-        "question_ids": ["react-med-01", "react-med-02", "js-easy-02", "js-med-04" if False else "react-med-01"],
+        "question_ids": ["react-med-01", "react-med-02", "js-easy-02"],
     },
     {
         "id": "asm-fe-hard-1",
@@ -675,3 +675,11 @@ def get_assessments_list(career_path=None, difficulty=None, skill=None):
             continue
         results.append(asm)
     return results if results else ASSESSMENT_SETS
+
+
+# Authored questions, company tags and the course / company assessment sets are joined here.
+from app.data import assessment_extras as _extras  # noqa: E402
+
+_extras.extend(ASSESSMENT_QUESTION_BANK, ASSESSMENT_SETS)
+SKILL_TOPICS = _extras.SKILL_TOPICS
+COMPANIES = _extras.COMPANIES

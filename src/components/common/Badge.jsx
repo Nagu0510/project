@@ -22,31 +22,31 @@ export const Badge = ({
   };
 
   if (variant === 'lime') {
-    badgeStyle.backgroundColor = 'var(--color-lime-soft)';
-    badgeStyle.color = 'var(--color-deep-forest)';
-    badgeStyle.border = '1px solid rgba(199, 243, 107, 0.4)';
+    badgeStyle.backgroundColor = 'var(--lime-soft)';
+    badgeStyle.color = 'var(--text)';
+    badgeStyle.border = '1px solid var(--border-mid)';
   } else if (variant === 'emerald') {
-    badgeStyle.backgroundColor = 'rgba(15, 118, 110, 0.08)';
-    badgeStyle.color = 'var(--color-emerald)';
-    badgeStyle.border = '1px solid rgba(15, 118, 110, 0.22)';
+    badgeStyle.backgroundColor = 'var(--accent-soft)';
+    badgeStyle.color = 'var(--accent)';
+    badgeStyle.border = '1px solid var(--accent-soft-strong)';
   } else if (variant === 'forest') {
     badgeStyle.backgroundColor = 'var(--color-deep-forest)';
     badgeStyle.color = 'var(--color-lime)';
   } else if (variant === 'success' || variant === 'Approved' || variant === 'Published') {
-    badgeStyle.backgroundColor = '#ECFDF5';
-    badgeStyle.color = '#059669';
-    badgeStyle.border = '1px solid rgba(5, 150, 105, 0.2)';
+    badgeStyle.backgroundColor = 'var(--success-soft)';
+    badgeStyle.color = 'var(--success-text)';
+    badgeStyle.border = '1px solid var(--success-border)';
   } else if (variant === 'warning' || variant === 'Needs Review' || variant === 'Processing') {
-    badgeStyle.backgroundColor = '#FFFBEB';
-    badgeStyle.color = '#D97706';
-    badgeStyle.border = '1px solid rgba(217, 119, 6, 0.2)';
+    badgeStyle.backgroundColor = 'var(--warning-soft)';
+    badgeStyle.color = 'var(--warning-text)';
+    badgeStyle.border = '1px solid var(--warning-border)';
   } else if (variant === 'error' || variant === 'Rejected') {
-    badgeStyle.backgroundColor = '#FEF2F2';
-    badgeStyle.color = '#DC2626';
-    badgeStyle.border = '1px solid rgba(220, 38, 38, 0.2)';
+    badgeStyle.backgroundColor = 'var(--danger-soft)';
+    badgeStyle.color = 'var(--danger-text)';
+    badgeStyle.border = '1px solid var(--danger-border)';
   } else {
-    badgeStyle.backgroundColor = 'var(--color-ivory-muted)';
-    badgeStyle.color = 'var(--color-charcoal-subtle)';
+    badgeStyle.backgroundColor = 'var(--bg-subtle)';
+    badgeStyle.color = 'var(--text)';
     badgeStyle.border = '1px solid var(--color-border-subtle)';
   }
 

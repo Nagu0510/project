@@ -12,13 +12,13 @@ export const AboutPage = () => {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
       <section style={{ paddingBlock: '6rem', textAlign: 'center' }}>
         <div className="container-custom" style={{ maxWidth: '760px' }}>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
             <span className="badge badge-emerald" style={{ marginBottom: '1.5rem', display: 'inline-flex' }}>Our Mission</span>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.03em', marginBottom: '1.25rem' }}>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.03em', marginBottom: '1.25rem' }}>
               Bridging the gap between education and employment.
             </h1>
             <p style={{ fontSize: '1.125rem', color: 'var(--color-text-muted)', lineHeight: 1.7, maxWidth: '600px', margin: '0 auto 2rem' }}>
@@ -29,17 +29,17 @@ export const AboutPage = () => {
         </div>
       </section>
 
-      <section style={{ paddingBlock: '5rem', background: 'var(--color-white)', borderTop: '1px solid var(--color-border-subtle)' }}>
+      <section style={{ paddingBlock: '5rem', background: 'var(--surface)', borderTop: '1px solid var(--color-border-subtle)' }}>
         <div className="container-custom">
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3rem)', color: 'var(--color-forest)', letterSpacing: '-0.025em', textAlign: 'center', marginBottom: '3rem' }}>Built on real principles.</h2>
+          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3rem)', color: 'var(--text)', letterSpacing: '-0.025em', textAlign: 'center', marginBottom: '3rem' }}>Built on real principles.</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
             {values.map((v, i) => (
               <motion.div key={v.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }}
-                style={{ background: 'var(--color-ivory)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', padding: '1.75rem' }}>
+                style={{ background: 'var(--bg)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', padding: '1.75rem' }}>
                 <div style={{ width: '40px', height: '40px', background: 'var(--color-forest)', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ color: 'var(--color-lime)', fontSize: '1rem', fontWeight: 700 }}>&#x2726;</span>
                 </div>
-                <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-forest)', marginBottom: '0.5rem' }}>{v.title}</h3>
+                <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.5rem' }}>{v.title}</h3>
                 <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', lineHeight: 1.65 }}>{v.desc}</p>
               </motion.div>
             ))}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ErrorBanner } from '../components/common/ErrorBanner';
 import { useSearchParams } from 'react-router-dom';
 import { Sidebar } from '../components/common/Sidebar';
 import { Navbar } from '../components/common/Navbar';
@@ -7,8 +8,6 @@ import { Badge } from '../components/common/Badge';
 import { PreviousQuestionCard } from '../components/shared/PreviousQuestionCard';
 import { TopicFrequencyCard } from '../components/shared/TopicFrequencyCard';
 import { CompanyInsightCard } from '../components/shared/CompanyInsightCard';
-import { mockPreviousQuestionsList, mockTopicFrequencies } from '../data/mockPreviousQuestions';
-import { mockCompaniesData } from '../data/mockCompanies';
 import { questionIntelligenceService } from '../services/questionIntelligenceService';
 import { useAuth } from '../context/AuthContext';
 import { normalizePreviousQuestionList } from '../utils/normalizers';
@@ -21,17 +20,30 @@ export const PreviousQuestionsPage = () => {
 
   const { isAuthenticated, requireAuth } = useAuth();
 
-  const [questions, setQuestions] = useState(() => normalizePreviousQuestionList(mockPreviousQuestionsList));
+  const [questions, setQuestions] = useState([]);
+  const [allQuestions, setAllQuestions] = useState([]); // unfiltered, for the topic and company summaries
+  const [companyStats, setCompanyStats] = useState({});
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCompany, setSelectedCompany] = useState(initialCompany);
   const [selectedTopic, setSelectedTopic] = useState(initialTopic);
   const [selectedDifficulty, setSelectedDifficulty] = useState('All');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    const fail = (err) => alive && setLoadError(err?.message || 'Please try again.');
+    questionIntelligenceService.getPreviousQuestions({}).then((rows) => alive && setAllQuestions(rows)).catch(fail);
+    questionIntelligenceService.getCompanies().then((data) => alive && setCompanyStats(data || {})).catch(fail);
+    return () => { alive = false; };
+  }, [reloadKey]);
 
   useEffect(() => {
     let isMounted = true;
     const fetchQuestions = async () => {
       setLoading(true);
+      setLoadError('');
       try {
         const fetched = await questionIntelligenceService.getPreviousQuestions({
           company: selectedCompany,
@@ -39,11 +51,9 @@ export const PreviousQuestionsPage = () => {
           difficulty: selectedDifficulty,
           search: searchTerm,
         });
-        if (isMounted && Array.isArray(fetched) && fetched.length > 0) {
-          setQuestions(fetched);
-        }
+        if (isMounted) setQuestions(Array.isArray(fetched) ? fetched : []);
       } catch (err) {
-        console.warn("Using offline previous questions", err);
+        if (isMounted) setLoadError(err?.message || 'Please try again.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -52,10 +62,20 @@ export const PreviousQuestionsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [selectedCompany, selectedTopic, selectedDifficulty]);
+  }, [selectedCompany, selectedTopic, selectedDifficulty, reloadKey]);
 
-  const companiesList = ['All', 'TCS', 'Infosys', 'Accenture', 'Cognizant', 'Wipro', 'Amazon', 'Capgemini', 'Deloitte'];
-  const topicsList = ['All', 'Arrays', 'Strings', 'SQL & Databases', 'Stacks', 'Data Structures', 'Linked Lists', 'Dynamic Programming', 'Trees'];
+  const companiesList = ['All', ...new Set(allQuestions.flatMap((q) => (q.companies?.length ? q.companies : [q.company])).filter(Boolean))];
+  const topicsList = ['All', ...new Set(allQuestions.map((q) => q.topic).filter(Boolean))];
+  const topicFrequencies = Object.values(allQuestions.reduce((acc, q) => {
+    if (!q.topic) return acc;
+    const entry = acc[q.topic] || (acc[q.topic] = { id: q.topic, name: q.topic, appearances: 0, companies: new Set() });
+    entry.appearances += 1;
+    (q.companies?.length ? q.companies : [q.company]).filter(Boolean).forEach((c) => entry.companies.add(c));
+    return acc;
+  }, {})).map((t) => ({ ...t, companies: [...t.companies] })).sort((a, b) => b.appearances - a.appearances).slice(0, 8);
+  const companyCards = Object.entries(companyStats).slice(0, 4).map(([key, c]) => [key, {
+    name: c.name, shortName: c.short_name || c.name, analyzedQuestionsCount: c.total_questions, topTopics: (c.top_topics || []).map((t) => t.topic),
+  }]);
   const difficultiesList = ['All', 'Easy', 'Medium', 'Hard'];
 
   const safeQuestions = Array.isArray(questions) ? questions : [];
@@ -77,17 +97,18 @@ export const PreviousQuestionsPage = () => {
   });
 
   return (
-    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-warm-ivory)' }}>
+    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       {isAuthenticated ? <Sidebar /> : <Navbar />}
 
       <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '3rem 1.5rem 5rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0 }}>
+          {loadError && <ErrorBanner title="Previous questions could not be loaded." message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />}
           {/* Guest Preview Banner */}
           {!isAuthenticated && (
             <div
               style={{
-                backgroundColor: 'var(--color-lime-soft)',
-                border: '1px solid rgba(6, 46, 37, 0.1)',
+                backgroundColor: 'var(--lime-soft)',
+                border: '1px solid var(--border)',
                 borderRadius: 'var(--radius-lg)',
                 padding: '0.85rem 1.25rem',
                 marginBottom: '2rem',
@@ -98,9 +119,9 @@ export const PreviousQuestionsPage = () => {
                 gap: '0.75rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.885rem', color: 'var(--color-deep-forest)', fontWeight: 600 }}>
-                <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-                <span><strong>Public Question Bank Preview:</strong> Browse and filter 2,840+ real placement questions freely. Sign in to start interactive practice.</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.885rem', color: 'var(--text)', fontWeight: 600 }}>
+                <span style={{ color: 'var(--accent)' }}>✦</span>
+                <span><strong>Public Question Bank Preview:</strong> Browse and filter the published previous-year questions freely. Sign in to start interactive practice.</span>
               </div>
               <Button variant="primary" size="sm" onClick={() => requireAuth(null, '/previous-questions')}>
                 Sign In to Practice →
@@ -111,8 +132,8 @@ export const PreviousQuestionsPage = () => {
           {/* Header */}
           <div style={{ marginBottom: '2rem' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.4rem' }}>
-              <span style={{ color: 'var(--color-emerald)' }}>✦</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-emerald)' }}>
+              <span style={{ color: 'var(--accent)' }}>✦</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--accent)' }}>
                 Historical Placement Archive
               </span>
               {!isAuthenticated && <Badge variant="lime" size="sm">Public Archive</Badge>}
@@ -121,13 +142,13 @@ export const PreviousQuestionsPage = () => {
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
                 margin: 0,
               }}
             >
               Previous Placement Questions
             </h1>
-            <p style={{ fontSize: '1rem', color: 'var(--color-charcoal-subtle)', marginTop: '4px', maxWidth: '680px' }}>
+            <p style={{ fontSize: '1rem', color: 'var(--text)', marginTop: '4px', maxWidth: '680px' }}>
               Explore questions that appeared in previous placement and technical assessments across premier IT companies.
             </p>
           </div>
@@ -137,11 +158,11 @@ export const PreviousQuestionsPage = () => {
               ========================================================================= */}
           <div style={{ marginBottom: '2.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: 0 }}>
+              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--text)', margin: 0 }}>
                 Frequently Asked Topics
               </h3>
               <span style={{ fontSize: '0.8rem', color: 'var(--color-muted-green)' }}>
-                Sorted by cross-company frequency
+                Sorted by number of published questions
               </span>
             </div>
 
@@ -152,9 +173,12 @@ export const PreviousQuestionsPage = () => {
                 gap: '1rem',
               }}
             >
-              {(mockTopicFrequencies || []).map((topic) => (
+              {topicFrequencies.map((topic) => (
                 <TopicFrequencyCard key={topic.id} topic={topic} />
               ))}
+              {!loading && topicFrequencies.length === 0 && (
+                <p style={{ color: 'var(--text)', fontSize: '0.9rem' }}>Topics will appear once previous questions are published.</p>
+              )}
             </div>
           </div>
 
@@ -163,7 +187,7 @@ export const PreviousQuestionsPage = () => {
               ========================================================================= */}
           <div style={{ marginBottom: '2.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: 0 }}>
+              <h3 style={{ fontSize: '1.25rem', fontFamily: 'var(--font-serif)', color: 'var(--text)', margin: 0 }}>
                 Prepare for a Company
               </h3>
               <span style={{ fontSize: '0.8rem', color: 'var(--color-muted-green)' }}>
@@ -178,9 +202,12 @@ export const PreviousQuestionsPage = () => {
                 gap: '1.25rem',
               }}
             >
-              {Object.entries(mockCompaniesData || {}).slice(0, 4).map(([key, data]) => (
+              {companyCards.map(([key, data]) => (
                 <CompanyInsightCard key={key} companyKey={key} companyData={data} />
               ))}
+              {!loading && companyCards.length === 0 && (
+                <p style={{ color: 'var(--text)', fontSize: '0.9rem' }}>Company insights will appear once previous questions are published.</p>
+              )}
             </div>
           </div>
 
@@ -191,7 +218,7 @@ export const PreviousQuestionsPage = () => {
             className="card-static"
             style={{
               padding: '1.25rem 1.5rem',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
               borderRadius: 'var(--radius-xl)',
               border: '1px solid var(--color-border-subtle)',
               marginBottom: '1.75rem',
@@ -215,7 +242,7 @@ export const PreviousQuestionsPage = () => {
                   padding: '0.55rem 1rem 0.55rem 2.25rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border-medium)',
-                  backgroundColor: 'var(--color-ivory-surface)',
+                  backgroundColor: 'var(--surface)',
                   fontSize: '0.885rem',
                   outline: 'none',
                 }}
@@ -231,7 +258,7 @@ export const PreviousQuestionsPage = () => {
                   padding: '0.55rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border-medium)',
-                  backgroundColor: 'var(--color-white)',
+                  backgroundColor: 'var(--surface)',
                   fontSize: '0.825rem',
                   outline: 'none',
                   cursor: 'pointer',
@@ -251,7 +278,7 @@ export const PreviousQuestionsPage = () => {
                   padding: '0.55rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border-medium)',
-                  backgroundColor: 'var(--color-white)',
+                  backgroundColor: 'var(--surface)',
                   fontSize: '0.825rem',
                   outline: 'none',
                   cursor: 'pointer',
@@ -271,7 +298,7 @@ export const PreviousQuestionsPage = () => {
                   padding: '0.55rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border-medium)',
-                  backgroundColor: 'var(--color-white)',
+                  backgroundColor: 'var(--surface)',
                   fontSize: '0.825rem',
                   outline: 'none',
                   cursor: 'pointer',

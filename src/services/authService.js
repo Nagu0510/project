@@ -1,137 +1,82 @@
-import { api } from './api';
+import { api, setAccessToken } from './api';
 import { safeStorage } from '../utils/storage';
 
-const DEFAULT_STUDENT_FALLBACK = {
-  id: 'usr-student-01',
-  name: 'Nagappa Gongadi',
-  email: 'nagappa@skillsense.ai',
-  role: 'student',
-  college: 'Engineering College',
-  department: 'Computer Science & Engineering',
-  year: 'Final Year (2026)',
-  career_interest: 'Backend Developer',
-  current_path: 'Backend Developer',
-  preferred_language: 'Python 3',
-  skill_level: 'Intermediate',
-  readiness_score: 87,
-  skill_progress: 74,
-  assessments_completed: 1,
-  strong_skills: ['Python', 'SQL', 'Java', 'REST APIs'],
-  gap_skills: ['System Design', 'Docker', 'Kubernetes'],
+const OFFLINE_MESSAGE = 'Cannot reach the server. Please try again.';
+
+// Network failures become one clear error. There is deliberately no offline/mock login:
+// if the server can't be reached, the user stays signed out.
+const withNetworkError = async (fn) => {
+  try {
+    return await fn();
+  } catch (err) {
+    if (err.isNetworkError || err.isTimeout) throw new Error(OFFLINE_MESSAGE);
+    throw err;
+  }
 };
 
-const DEFAULT_ADMIN_FALLBACK = {
-  id: 'usr-admin-01',
-  name: 'SkillSense Admin',
-  email: 'admin@skillsense.ai',
-  role: 'admin',
-  department: 'Platform Engineering & Placement Intelligence',
-  managedPapersCount: 46,
-  extractedQuestionsCount: 2840,
-  verifiedCompanies: 18,
+const startSession = (data) => {
+  setAccessToken(data.access_token);
+  safeStorage.set('auth', 'true'); // hint only: tells us a refresh cookie may exist
+  return data;
 };
 
 export const authService = {
-  async register(name, email, password, careerInterest) {
-    try {
-      const data = await api.post('/auth/register', {
+  register: (name, email, password, careerInterest) =>
+    withNetworkError(async () =>
+      startSession(await api.post('/auth/register', {
         name,
         email,
         password,
         career_interest: careerInterest,
-      });
-      if (data.access_token) {
-        localStorage.setItem('skillsense_token', data.access_token);
-      }
-      return data;
-    } catch (err) {
-      if (err.isNetworkError) {
-        console.info('[SkillSense Auth] Backend offline — activating resilient local registration.');
-        const mockToken = `mock-token-${Date.now()}`;
-        const mockUser = {
-          ...DEFAULT_STUDENT_FALLBACK,
-          id: `usr-${Date.now().toString(36)}`,
-          name: name || 'Student User',
-          email: email.toLowerCase().trim(),
-          career_interest: careerInterest || 'Backend Developer',
-          current_path: careerInterest || 'Backend Developer',
-          strong_skills: ['Python'],
-          gap_skills: ['System Design', 'Docker'],
-        };
-        localStorage.setItem('skillsense_token', mockToken);
-        return { access_token: mockToken, user: mockUser };
-      }
-      throw err;
-    }
+      }))),
+
+  login: (email, password) =>
+    withNetworkError(async () => startSession(await api.post('/auth/login', { email, password }))),
+
+  adminLogin: (email, password) =>
+    withNetworkError(async () => startSession(await api.post('/auth/admin/login', { email, password }))),
+
+  googleLogin: (credential) =>
+    withNetworkError(async () => startSession(await api.post('/auth/google', { credential }))),
+
+  sendVerification: () => withNetworkError(() => api.post('/auth/send-verification')),
+
+  verifyEmail: (token) =>
+    withNetworkError(() => api.get(`/auth/verify-email?token=${encodeURIComponent(token)}`)),
+
+  // Called on page load. Returns { user } when the refresh cookie is still valid, otherwise null.
+  async restoreSession() {
+    if (!safeStorage.get('auth', null)) return null;
+    const data = await api.refreshSession();
+    if (!data) safeStorage.remove('auth');
+    return data;
   },
 
-  async login(email, password) {
+  getMe: () => withNetworkError(() => api.get('/auth/me')),
+
+  async changePassword(currentPassword, newPassword) {
+    const data = await withNetworkError(() => api.post('/auth/change-password', {
+      current_password: currentPassword || null, // null = "set a password" for Google-only accounts
+      new_password: newPassword,
+    }));
+    if (data.access_token) setAccessToken(data.access_token); // old tokens were just invalidated
+    return data;
+  },
+
+  forgotPassword: (email) =>
+    withNetworkError(() => api.post('/auth/forgot-password', { email })),
+
+  resetPassword: (token, newPassword) =>
+    withNetworkError(() => api.post('/auth/reset-password', { token, new_password: newPassword })),
+
+  async logout() {
     try {
-      const data = await api.post('/auth/login', {
-        email,
-        password,
-      });
-      if (data.access_token) {
-        localStorage.setItem('skillsense_token', data.access_token);
-      }
-      return data;
-    } catch (err) {
-      if (err.isNetworkError) {
-        console.info('[SkillSense Auth] Backend offline — activating resilient local student authentication.');
-        const cleanEmail = (email || '').toLowerCase().trim();
-        const displayName = cleanEmail ? cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Student User';
-        
-        const mockToken = `mock-token-${Date.now()}`;
-        const mockUser = {
-          ...DEFAULT_STUDENT_FALLBACK,
-          email: cleanEmail || DEFAULT_STUDENT_FALLBACK.email,
-          name: cleanEmail === DEFAULT_STUDENT_FALLBACK.email ? DEFAULT_STUDENT_FALLBACK.name : displayName,
-        };
-        localStorage.setItem('skillsense_token', mockToken);
-        return { access_token: mockToken, user: mockUser };
-      }
-      throw err;
+      await api.post('/auth/logout');
+    } catch {
+      // Server unreachable: still sign out locally; the refresh cookie expires on its own.
     }
-  },
-
-  async adminLogin(email, password) {
-    try {
-      const data = await api.post('/auth/admin/login', {
-        email,
-        password,
-      });
-      if (data.access_token) {
-        localStorage.setItem('skillsense_token', data.access_token);
-      }
-      return data;
-    } catch (err) {
-      if (err.isNetworkError) {
-        console.info('[SkillSense Auth] Backend offline — activating resilient local administrator authentication.');
-        const mockToken = `mock-admin-token-${Date.now()}`;
-        localStorage.setItem('skillsense_token', mockToken);
-        return { access_token: mockToken, user: DEFAULT_ADMIN_FALLBACK };
-      }
-      throw err;
-    }
-  },
-
-  async getMe() {
-    try {
-      return await api.get('/auth/me');
-    } catch (err) {
-      if (err.isNetworkError) {
-        const cachedUser = safeStorage.get('user', null);
-        if (cachedUser) return cachedUser;
-        return DEFAULT_STUDENT_FALLBACK;
-      }
-      throw err;
-    }
-  },
-
-  logout() {
-    localStorage.removeItem('skillsense_token');
-    localStorage.removeItem('skillsense_user');
-    localStorage.removeItem('skillsense_auth');
+    setAccessToken(null);
+    safeStorage.clearSkillSenseKeys();
   },
 };
 

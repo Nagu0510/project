@@ -11,11 +11,10 @@ export const CompanyInsightCard = ({
   if (!companyData) return null;
 
   const {
-    name,
-    shortName,
-    analyzedQuestionsCount = 120,
-    topTopics = ["DSA", "Aptitude", "Java", "SQL"],
-    aiInsight,
+    name = '',
+    shortName = name,
+    analyzedQuestionsCount = 0,
+    topTopics = [],
   } = companyData;
 
   return (
@@ -24,7 +23,7 @@ export const CompanyInsightCard = ({
       style={{
         padding: '1.5rem',
         borderRadius: 'var(--radius-xl)',
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         border: '1px solid var(--color-border-subtle)',
         display: 'flex',
         flexDirection: 'column',
@@ -39,12 +38,12 @@ export const CompanyInsightCard = ({
                 width: '42px',
                 height: '42px',
                 borderRadius: '10px',
-                backgroundColor: 'var(--color-ivory-surface)',
+                backgroundColor: 'var(--surface)',
                 border: '1px solid var(--color-border-medium)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--color-emerald)',
+                color: 'var(--accent)',
                 fontWeight: 800,
                 fontSize: '1rem',
               }}
@@ -56,30 +55,18 @@ export const CompanyInsightCard = ({
                 style={{
                   fontSize: '1.25rem',
                   fontFamily: 'var(--font-serif)',
-                  color: 'var(--color-deep-forest)',
+                  color: 'var(--text)',
                   margin: 0,
                 }}
               >
                 {shortName}
               </h3>
               <span style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)' }}>
-                {analyzedQuestionsCount} analyzed questions
+                {analyzedQuestionsCount} {analyzedQuestionsCount === 1 ? 'question' : 'questions'} analysed
               </span>
             </div>
           </div>
 
-          <span
-            style={{
-              padding: '4px 8px',
-              borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-lime-soft)',
-              color: 'var(--color-deep-forest)',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-            }}
-          >
-            Verified Drive
-          </span>
         </div>
 
         <div style={{ marginBottom: '1.25rem' }}>
@@ -93,11 +80,11 @@ export const CompanyInsightCard = ({
                 style={{
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  backgroundColor: 'var(--color-ivory-surface)',
+                  backgroundColor: 'var(--surface)',
                   border: '1px solid var(--color-border-subtle)',
                   padding: '3px 8px',
                   borderRadius: 'var(--radius-sm)',
-                  color: 'var(--color-deep-forest)',
+                  color: 'var(--text)',
                 }}
               >
                 {topic}

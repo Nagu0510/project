@@ -5,7 +5,7 @@ export const ProgressCircle = ({
   max = 100,
   size = 110,
   strokeWidth = 9,
-  color = 'var(--color-emerald)',
+  color = 'var(--accent)',
   trackColor = 'var(--color-ivory-muted)',
   label = '',
   sublabel = '',
@@ -69,7 +69,7 @@ export const ProgressCircle = ({
             fontFamily: 'var(--font-serif)',
             fontSize: size > 90 ? '1.75rem' : '1.25rem',
             lineHeight: 1,
-            color: 'var(--color-deep-forest)',
+            color: 'var(--text)',
           }}
         >
           {value}%

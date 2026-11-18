@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from '../../components/common/ThemeToggle';
 
 export const AdminLoginPage = () => {
   const [email, setEmail] = useState('');
@@ -27,53 +28,41 @@ export const AdminLoginPage = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-forest)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}><ThemeToggle /></div>
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} style={{ width: '100%', maxWidth: '440px' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '14px', background: 'var(--color-lime)', color: 'var(--color-forest)', fontWeight: 700, fontSize: '1.6rem', marginBottom: '1rem' }}>&#x2726;</span>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--color-ivory)', letterSpacing: '-0.025em' }}>
-            SkillSense <span style={{ color: 'var(--color-lime)' }}>Admin</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '56px', height: '56px', borderRadius: '14px', background: 'var(--color-forest)', color: 'var(--color-lime)', border: '1px solid var(--border-mid)', fontWeight: 700, fontSize: '1.6rem', marginBottom: '1rem' }}>&#x2726;</span>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.025em' }}>
+            SkillSense <span style={{ color: 'var(--accent)' }}>Admin</span>
           </h1>
-          <p style={{ color: 'rgba(244, 240, 231, 0.5)', fontSize: '0.875rem', marginTop: '0.375rem' }}>Restricted access — administrators only</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.375rem' }}>Restricted access — administrators only</p>
         </div>
 
-        <div style={{ background: 'rgba(244, 240, 231, 0.06)', border: '1px solid rgba(183, 228, 74, 0.12)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', borderRadius: 'var(--radius-2xl)', padding: '2.5rem' }}>
           {error && (
-            <div style={{ background: 'rgba(220, 38, 38, 0.12)', border: '1px solid rgba(220, 38, 38, 0.25)', borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', marginBottom: '1.25rem', color: '#fca5a5', fontSize: '0.875rem', fontWeight: 500 }}>
+            <div role="alert" style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger-border)', borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', marginBottom: '1.25rem', color: 'var(--danger-text)', fontSize: '0.875rem', fontWeight: 500 }}>
               {error}
             </div>
           )}
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
-              <label style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Admin Email</label>
-              <input type="email" autoComplete="email" placeholder="admin@skillsense.ai" value={email} onChange={(e) => setEmail(e.target.value)} required
-                style={{ width: '100%', padding: '0.75rem 1rem', background: 'rgba(244, 240, 231, 0.06)', border: '1.5px solid rgba(183, 228, 74, 0.15)', borderRadius: 'var(--radius-md)', color: 'var(--color-ivory)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
-                onFocus={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.5)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.15)'}
-              />
+              <label style={{ color: 'var(--text)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Admin Email</label>
+              <input className="form-input" type="email" autoComplete="email" placeholder="Administrator email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div>
-              <label style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Password</label>
-              <input type="password" autoComplete="current-password" placeholder="Admin password" value={password} onChange={(e) => setPassword(e.target.value)} required
-                style={{ width: '100%', padding: '0.75rem 1rem', background: 'rgba(244, 240, 231, 0.06)', border: '1.5px solid rgba(183, 228, 74, 0.15)', borderRadius: 'var(--radius-md)', color: 'var(--color-ivory)', fontSize: '0.9375rem', outline: 'none', fontFamily: 'var(--font-sans)' }}
-                onFocus={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.5)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(183, 228, 74, 0.15)'}
-              />
+              <label style={{ color: 'var(--text)', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.4rem', display: 'block' }}>Password</label>
+              <input className="form-input" type="password" autoComplete="current-password" placeholder="Admin password" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
-            <button type="submit" disabled={loading}
-              style={{ width: '100%', padding: '0.875rem', borderRadius: 'var(--radius-full)', background: loading ? 'rgba(183, 228, 74, 0.5)' : 'var(--color-lime)', color: 'var(--color-forest)', fontFamily: 'var(--font-sans)', fontWeight: 700, fontSize: '1rem', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '0.25rem' }}>
+            <button type="submit" disabled={loading} className="btn btn-primary"
+              style={{ width: '100%', padding: '0.875rem', fontSize: '1rem', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1, marginTop: '0.25rem' }}>
               {loading ? 'Authenticating...' : 'Access Admin Dashboard →'}
             </button>
           </form>
         </div>
 
         <div style={{ textAlign: 'center', marginTop: '1.75rem' }}>
-          <Link to="/login" style={{ color: 'rgba(244, 240, 231, 0.5)', fontSize: '0.85rem', textDecoration: 'none' }}>Back to student login</Link>
-        </div>
-        <div style={{ marginTop: '1.25rem', padding: '0.875rem 1rem', background: 'rgba(183, 228, 74, 0.06)', border: '1px solid rgba(183, 228, 74, 0.1)', borderRadius: 'var(--radius-md)' }}>
-          <p style={{ fontSize: '0.75rem', color: 'rgba(244, 240, 231, 0.4)', textAlign: 'center', fontFamily: 'var(--font-mono)' }}>
-            Demo: admin@skillsense.ai / admin123
-          </p>
+          <Link to="/login" style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textDecoration: 'underline' }}>Back to student login</Link>
         </div>
       </motion.div>
     </div>

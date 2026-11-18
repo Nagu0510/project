@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { ErrorBanner } from '../components/common/ErrorBanner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Filter, Sparkles, SlidersHorizontal, CheckCircle2 } from 'lucide-react';
 import { Sidebar } from '../components/common/Sidebar';
@@ -23,14 +24,17 @@ export const CareerPathsPage = () => {
 
   const [careerPaths, setCareerPaths] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState('All Domains');
-  const [selectedTrackId, setSelectedTrackId] = useState(user?.currentPath || 'backend');
+  const [selectedTrackId, setSelectedTrackId] = useState(user?.currentPath || '');
 
   useEffect(() => {
     let isMounted = true;
     const fetchPaths = async () => {
       setLoading(true);
+      setLoadError('');
       try {
         const paths = await careerService.getCareerPaths();
         if (isMounted && Array.isArray(paths) && paths.length > 0) {
@@ -43,7 +47,7 @@ export const CareerPathsPage = () => {
           }
         }
       } catch (err) {
-        console.warn('[CareerPaths] Service fallback:', err);
+        if (isMounted) setLoadError(err?.message || 'Please try again.');
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -52,7 +56,7 @@ export const CareerPathsPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [user?.currentPath]);
+  }, [user?.currentPath, reloadKey]);
 
   // Filter paths by search query and domain
   const filteredPaths = useMemo(() => {
@@ -112,14 +116,15 @@ export const CareerPathsPage = () => {
     });
   };
 
-  const userSkills = user?.strongSkills || user?.skills || ['Python', 'SQL', 'Git'];
+  const userSkills = user?.strongSkills || user?.skills || [];
 
   return (
-    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
+    <div className={isAuthenticated ? "dashboard-layout" : ""} style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       {isAuthenticated ? <Sidebar /> : <Navbar />}
 
       <main className={isAuthenticated ? "dashboard-main" : "container-custom"} style={{ padding: isAuthenticated ? undefined : '3rem 1.5rem 6rem' }}>
         <div className="dashboard-content animate-fade-in" style={{ padding: isAuthenticated ? undefined : 0, maxWidth: '1280px', margin: '0 auto' }}>
+          {loadError && <ErrorBanner title="Career paths could not be loaded." message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />}
           
           {/* Header Section */}
           <motion.div
@@ -129,8 +134,8 @@ export const CareerPathsPage = () => {
             style={{ marginBottom: '2.5rem' }}
           >
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '0.5rem' }}>
-              <span style={{ color: 'var(--color-emerald)', fontSize: '0.9rem' }}>✦</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-emerald)' }}>
+              <span style={{ color: 'var(--accent)', fontSize: '0.9rem' }}>✦</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--accent)' }}>
                 Target Career Path Selection
               </span>
             </div>
@@ -139,7 +144,7 @@ export const CareerPathsPage = () => {
                 fontFamily: 'var(--font-serif)',
                 fontSize: 'clamp(2.25rem, 4vw, 3.25rem)',
                 fontWeight: 400,
-                color: 'var(--color-forest)',
+                color: 'var(--text)',
                 margin: '0 0 0.5rem 0',
                 letterSpacing: '-0.03em',
                 lineHeight: 1.1,
@@ -158,7 +163,7 @@ export const CareerPathsPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              background: 'var(--color-white)',
+              background: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
               borderRadius: 'var(--radius-2xl)',
               padding: '1.25rem 1.5rem',
@@ -187,7 +192,7 @@ export const CareerPathsPage = () => {
                   paddingLeft: '2.75rem',
                   borderRadius: 'var(--radius-full)',
                   border: '1.5px solid var(--color-border-medium)',
-                  backgroundColor: 'var(--color-ivory-soft)',
+                  backgroundColor: 'var(--surface)',
                   fontSize: '0.9375rem',
                 }}
               />
@@ -202,11 +207,11 @@ export const CareerPathsPage = () => {
                   padding: '0.75rem 1.25rem',
                   borderRadius: 'var(--radius-full)',
                   border: '1.5px solid var(--color-border-medium)',
-                  backgroundColor: 'var(--color-white)',
+                  backgroundColor: 'var(--surface)',
                   fontFamily: 'var(--font-sans)',
                   fontWeight: 600,
                   fontSize: '0.875rem',
-                  color: 'var(--color-forest)',
+                  color: 'var(--text)',
                   outline: 'none',
                   cursor: 'pointer',
                 }}
@@ -277,13 +282,13 @@ export const CareerPathsPage = () => {
                   style={{
                     textAlign: 'center',
                     padding: '4rem 2rem',
-                    background: 'var(--color-white)',
+                    background: 'var(--surface)',
                     borderRadius: 'var(--radius-2xl)',
                     border: '1px solid var(--color-border-subtle)',
                   }}
                 >
-                  <Sparkles size={36} color="var(--color-emerald)" style={{ marginBottom: '1rem' }} />
-                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--color-forest)', margin: '0 0 0.5rem 0' }}>
+                  <Sparkles size={36} color="var(--accent)" style={{ marginBottom: '1rem' }} />
+                  <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', color: 'var(--text)', margin: '0 0 0.5rem 0' }}>
                     No matching career tracks found
                   </h3>
                   <p style={{ color: 'var(--color-text-muted)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>

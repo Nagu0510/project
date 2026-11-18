@@ -18,11 +18,11 @@ export const AIInsightCard = ({
       className={`card-floating ${className}`}
       style={{
         position: 'relative',
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         borderRadius: 'var(--radius-xl)',
-        border: '1px solid rgba(15, 118, 110, 0.25)',
+        border: '1px solid var(--accent-soft-strong)',
         padding: '1.5rem 1.75rem',
-        boxShadow: '0 8px 24px -4px rgba(6, 46, 37, 0.08)',
+        boxShadow: '0 8px 24px -4px rgba(var(--shadow-color), 0.08)',
         overflow: 'hidden',
       }}
     >
@@ -34,7 +34,7 @@ export const AIInsightCard = ({
           left: 0,
           right: 0,
           height: '4px',
-          background: 'linear-gradient(90deg, var(--color-lime) 0%, var(--color-emerald) 100%)',
+          background: 'linear-gradient(90deg, var(--color-lime) 0%, var(--accent) 100%)',
         }}
       />
 
@@ -48,8 +48,8 @@ export const AIInsightCard = ({
               width: '20px',
               height: '20px',
               borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-lime-soft)',
-              color: 'var(--color-deep-forest)',
+              backgroundColor: 'var(--lime-soft)',
+              color: 'var(--text)',
               fontSize: '0.75rem',
             }}
           >
@@ -62,7 +62,7 @@ export const AIInsightCard = ({
               fontWeight: 800,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: 'var(--color-emerald)',
+              color: 'var(--accent)',
             }}
           >
             {badgeText}
@@ -73,7 +73,7 @@ export const AIInsightCard = ({
           style={{
             fontSize: '0.72rem',
             color: 'var(--color-muted-green)',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             padding: '2px 8px',
             borderRadius: 'var(--radius-full)',
             border: '1px solid var(--color-border-subtle)',
@@ -87,7 +87,7 @@ export const AIInsightCard = ({
         style={{
           fontSize: '1.35rem',
           fontFamily: 'var(--font-serif)',
-          color: 'var(--color-deep-forest)',
+          color: 'var(--text)',
           lineHeight: 1.25,
           marginBottom: '1rem',
         }}
@@ -107,7 +107,7 @@ export const AIInsightCard = ({
           style={{
             padding: '0.75rem 1rem',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             border: '1px solid var(--color-border-subtle)',
           }}
         >
@@ -118,14 +118,14 @@ export const AIInsightCard = ({
             style={{
               fontSize: '0.95rem',
               fontWeight: 700,
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
               marginTop: '2px',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
             }}
           >
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#F59E0B' }} />
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'var(--warning)' }} />
             {gap}
           </div>
         </div>
@@ -134,18 +134,18 @@ export const AIInsightCard = ({
           style={{
             padding: '0.75rem 1rem',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: 'rgba(199, 243, 107, 0.22)',
-            border: '1px solid rgba(199, 243, 107, 0.45)',
+            backgroundColor: 'var(--lime-soft)',
+            border: '1px solid var(--accent-soft-strong)',
           }}
         >
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-dark-emerald)', fontWeight: 600 }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
             Recommended next step:
           </div>
           <div
             style={{
               fontSize: '0.95rem',
               fontWeight: 700,
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
               marginTop: '2px',
             }}
           >

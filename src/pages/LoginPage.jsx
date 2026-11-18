@@ -1,16 +1,21 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/common/Navbar';
+import { GoogleAuth } from '../components/common/GoogleAuth';
 
 export const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // a new page visit never starts with the previous attempt's error
+  useEffect(() => { setError(''); }, [location.key]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,12 +35,22 @@ export const LoginPage = () => {
     }
   };
 
+  const handleGoogle = async (credential) => {
+    setError('');
+    try {
+      const result = await googleLogin(credential);
+      if (result?.success) navigate('/dashboard');
+    } catch (err) {
+      setError(err?.message || 'Google sign-in failed. Please try again.');
+    }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 'calc(100vh - 68px)' }} className="auth-grid">
         <div style={{ background: 'var(--color-forest)', padding: '4rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(183, 228, 74, 0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, var(--on-dark-lime-soft) 0%, transparent 70%)', pointerEvents: 'none' }} />
           <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}>
             <div style={{ marginBottom: '2.5rem' }}>
               <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', borderRadius: '12px', background: 'var(--color-lime)', color: 'var(--color-forest)', fontWeight: 700, fontSize: '1.4rem', marginBottom: '1.5rem' }}>
@@ -44,7 +59,7 @@ export const LoginPage = () => {
               <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2rem, 4vw, 3rem)', fontWeight: 400, color: 'var(--color-ivory)', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: '1rem' }}>
                 Welcome back to<br /><em style={{ color: 'var(--color-lime)' }}>SkillSense AI.</em>
               </h1>
-              <p style={{ color: 'rgba(244, 240, 231, 0.65)', fontSize: '1.05rem', lineHeight: 1.7, maxWidth: '380px' }}>
+              <p style={{ color: 'var(--on-dark-muted)', fontSize: '1.05rem', lineHeight: 1.7, maxWidth: '380px' }}>
                 Your personalized assessment scores, roadmap progress, and career data are waiting for you.
               </p>
             </div>
@@ -52,7 +67,7 @@ export const LoginPage = () => {
               {['Resume your personalized roadmap', 'View your latest assessment results', 'Check placement match scores'].map((text) => (
                 <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-lime)', flexShrink: 0 }} />
-                  <span style={{ color: 'rgba(244, 240, 231, 0.7)', fontSize: '0.9rem' }}>{text}</span>
+                  <span style={{ color: 'var(--on-dark-muted)', fontSize: '0.9rem' }}>{text}</span>
                 </div>
               ))}
             </div>
@@ -66,10 +81,10 @@ export const LoginPage = () => {
             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
             style={{ width: '100%', maxWidth: '420px' }}
           >
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.025em', marginBottom: '0.5rem' }}>Sign in</h2>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.025em', marginBottom: '0.5rem' }}>Sign in</h2>
             <p style={{ color: 'var(--color-text-muted)', marginBottom: '2rem' }}>
               Don't have an account?{' '}
-              <Link to="/signup" style={{ color: 'var(--color-emerald)', fontWeight: 600 }}>Get started free</Link>
+              <Link to="/signup" style={{ color: 'var(--accent)', fontWeight: 600 }}>Get started free</Link>
             </p>
 
             {error && (
@@ -92,13 +107,14 @@ export const LoginPage = () => {
               </button>
             </form>
 
-            <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'var(--color-ivory)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border-subtle)' }}>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.375rem', fontWeight: 600 }}>Demo Credentials</p>
-              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)' }}>nagappa@skillsense.ai / password123</p>
-            </div>
+            <GoogleAuth text="signin_with" onCredential={handleGoogle} onError={setError} />
+
+            <p style={{ marginTop: '1.25rem', textAlign: 'center', fontSize: '0.85rem' }}>
+              <Link to="/forgot-password" style={{ color: 'var(--accent)', fontWeight: 600 }}>Forgot your password?</Link>
+            </p>
 
             <p style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
-              Admin? <Link to="/admin/login" style={{ color: 'var(--color-emerald)', fontWeight: 600 }}>Admin login →</Link>
+              Admin? <Link to="/admin/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>Admin login →</Link>
             </p>
           </motion.div>
         </div>

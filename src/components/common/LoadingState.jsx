@@ -30,19 +30,19 @@ export const LoadingState = ({ message = 'Analyzing skills & intelligence...', s
             position: 'absolute',
             inset: 0,
             borderRadius: 'var(--radius-full)',
-            border: '2px solid rgba(15, 118, 110, 0.2)',
-            borderTopColor: 'var(--color-emerald)',
+            border: '2px solid var(--accent-soft-strong)',
+            borderTopColor: 'var(--accent)',
             animation: 'spinSlow 1.2s linear infinite',
           }}
         />
-        <Sparkles size={24} color="var(--color-emerald)" />
+        <Sparkles size={24} color="var(--accent)" />
       </div>
 
       <h4
         style={{
           fontSize: '1.15rem',
           fontFamily: 'var(--font-serif)',
-          color: 'var(--color-deep-forest)',
+          color: 'var(--text)',
           margin: '0 0 0.4rem 0',
         }}
       >

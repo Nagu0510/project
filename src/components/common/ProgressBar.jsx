@@ -3,7 +3,7 @@ import React from 'react';
 export const ProgressBar = ({
   value = 0,
   max = 100,
-  color = 'var(--color-emerald)',
+  color = 'var(--accent)',
   height = '8px',
   showLabel = false,
   className = '',
@@ -21,7 +21,7 @@ export const ProgressBar = ({
             marginBottom: '4px',
             fontSize: '0.8rem',
             fontWeight: 600,
-            color: 'var(--color-deep-forest)',
+            color: 'var(--text)',
           }}
         >
           <span>Progress</span>
@@ -32,7 +32,7 @@ export const ProgressBar = ({
         style={{
           width: '100%',
           height,
-          backgroundColor: 'var(--color-ivory-muted)',
+          backgroundColor: 'var(--bg-subtle)',
           borderRadius: 'var(--radius-full)',
           overflow: 'hidden',
           position: 'relative',

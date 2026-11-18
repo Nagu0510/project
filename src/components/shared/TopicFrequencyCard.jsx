@@ -8,7 +8,7 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
     name = 'Topic',
     appearances = 0,
     companies = [],
-    priority = 'High',
+    priority = '',
   } = topic || {};
 
   const safeCompanies = Array.isArray(companies) ? companies : [companies].filter(Boolean);
@@ -22,12 +22,12 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
 
   return (
     <Link
-      to={`/previous-questions?topic=${encodeURIComponent(name)}`}
+      to={`/topics/${encodeURIComponent(name)}`}
       className={`card-floating ${className}`}
       style={{
         padding: '1.25rem 1.35rem',
         borderRadius: 'var(--radius-lg)',
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         border: '1px solid var(--color-border-subtle)',
         display: 'flex',
         alignItems: 'center',
@@ -35,7 +35,7 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
         textDecoration: 'none',
         transition: 'transform 0.2s ease, border-color 0.2s ease',
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-emerald)')}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
       onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--color-border-subtle)')}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -44,12 +44,12 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
             width: '42px',
             height: '42px',
             borderRadius: '10px',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             border: '1px solid var(--color-border-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'var(--color-emerald)',
+            color: 'var(--accent)',
             flexShrink: 0,
           }}
         >
@@ -62,19 +62,21 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
               style={{
                 fontSize: '1.05rem',
                 fontFamily: 'var(--font-serif)',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
                 margin: 0,
               }}
             >
               {name}
             </h4>
-            <Badge variant={priority === 'High' ? 'lime' : 'neutral'} size="sm">
-              {priority} Priority
-            </Badge>
+            {priority && (
+              <Badge variant={priority === 'High' ? 'lime' : 'neutral'} size="sm">
+                {priority} Priority
+              </Badge>
+            )}
           </div>
 
           <div style={{ fontSize: '0.78rem', color: 'var(--color-muted-green)', marginTop: '2px' }}>
-            <strong style={{ color: 'var(--color-deep-forest)' }}>{appearances}</strong> appearances · {safeCompanies.join(' · ')}
+            <strong style={{ color: 'var(--text)' }}>{appearances}</strong> appearances · {safeCompanies.join(' · ')}
           </div>
         </div>
       </div>
@@ -84,11 +86,11 @@ export const TopicFrequencyCard = ({ topic = {}, className = '' }) => {
           width: '32px',
           height: '32px',
           borderRadius: 'var(--radius-full)',
-          backgroundColor: 'var(--color-ivory-surface)',
+          backgroundColor: 'var(--surface)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--color-emerald)',
+          color: 'var(--accent)',
         }}
       >
         <ArrowRight size={16} />

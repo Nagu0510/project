@@ -1,7 +1,7 @@
 // Safe storage helper with versioning & error resilience
 
 const STORAGE_PREFIX = 'skillsense_';
-const CURRENT_STORAGE_VERSION = '2';
+const CURRENT_STORAGE_VERSION = '3';
 
 export const safeStorage = {
   get(key, fallback = null) {
@@ -48,6 +48,7 @@ export const safeStorage = {
         // Only clear stale skill-sense keys, do NOT wipe user's unrelated domain keys
         const keysToClean = [
           'skillsense_user',
+          'skillsense_token', // tokens no longer live in localStorage
           'skillsense_assessment_cache',
           'skillsense_roadmap_cache',
         ];

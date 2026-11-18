@@ -18,20 +18,18 @@ export const CareerCard = ({
   const slug = path.slug || path.id || "backend-developer";
   const description = path.description || "";
   const skills = path.required_skills || path.skills || path.requiredSkills || [];
-  const demand = path.demand_level || path.demandLevel || "High Demand";
-  const openings = path.active_openings || path.openings || 150;
-  const salary = path.average_salary || path.avgSalary || path.averageSalary || "₹8 LPA – ₹15 LPA";
+  const demand = path.demand_level || path.demandLevel || "";
+  const salary = path.average_salary || path.avgSalary || path.averageSalary || "";
 
   // Calculate dynamic match score if user skills present
-  let matchScore = path.match_percentage || path.matchScore || path.match_score;
+  // A match score exists only when the student has skills to compare; no baseline, no default
+  let matchScore = null;
   if (userSkills && userSkills.length > 0 && skills.length > 0) {
     const matchedCount = skills.filter((s) =>
       userSkills.some((us) => us.toLowerCase() === s.toLowerCase() || s.toLowerCase().includes(us.toLowerCase()))
     ).length;
     const computed = Math.round((matchedCount / skills.length) * 100);
-    matchScore = Math.max(computed, 65); // Realistic baseline
-  } else if (!matchScore) {
-    matchScore = 83;
+    matchScore = computed;
   }
 
   const handleChoose = async (e) => {
@@ -62,15 +60,15 @@ export const CareerCard = ({
       }}
       whileHover={{ y: -4 }}
       style={{
-        background: 'var(--color-white)',
-        border: selectedState ? '2px solid var(--color-emerald)' : '1px solid var(--color-border-subtle)',
+        background: 'var(--surface)',
+        border: selectedState ? '2px solid var(--accent)' : '1px solid var(--color-border-subtle)',
         borderRadius: 'var(--radius-2xl)',
         padding: '1.75rem',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         boxShadow: selectedState
-          ? '0 16px 36px -6px rgba(31, 107, 80, 0.18)'
+          ? 'var(--shadow-xl)'
           : 'var(--shadow-md)',
         transition: 'border-color 200ms, box-shadow 200ms',
         height: '100%',
@@ -92,7 +90,7 @@ export const CareerCard = ({
                     fontFamily: 'var(--font-serif)',
                     fontSize: '1.45rem',
                     fontWeight: 400,
-                    color: 'var(--color-forest)',
+                    color: 'var(--text)',
                     margin: 0,
                     lineHeight: 1.15,
                     letterSpacing: '-0.02em',
@@ -107,12 +105,13 @@ export const CareerCard = ({
                 )}
               </div>
               <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500, marginTop: '3px' }}>
-                {demand} · {openings}+ Openings
+                {demand}
               </div>
             </div>
           </div>
 
-          {/* Match Badge */}
+          {/* Match Badge (only with real skills to compare) */}
+          {matchScore !== null && (
           <div
             style={{
               display: 'inline-flex',
@@ -120,20 +119,21 @@ export const CareerCard = ({
               gap: '4px',
               padding: '0.35rem 0.85rem',
               borderRadius: 'var(--radius-full)',
-              background: selectedState ? 'var(--color-forest)' : 'var(--color-lime-soft)',
+              background: selectedState ? 'var(--color-forest)' : 'var(--lime-soft)',
               color: selectedState ? 'var(--color-lime)' : 'var(--color-forest)',
               fontFamily: 'var(--font-sans)',
               fontWeight: 800,
               fontSize: '0.85rem',
               letterSpacing: '0.01em',
               whiteSpace: 'nowrap',
-              boxShadow: '0 2px 8px rgba(183, 228, 74, 0.25)',
+              boxShadow: '0 2px 8px var(--color-lime-glow)',
               transition: 'background 250ms, color 250ms',
             }}
           >
             <span>✦</span>
             {matchScore}% Match
           </div>
+          )}
         </div>
 
         {/* Description */}
@@ -156,7 +156,7 @@ export const CareerCard = ({
               fontWeight: 800,
               textTransform: 'uppercase',
               letterSpacing: '0.08em',
-              color: 'var(--color-forest)',
+              color: 'var(--text)',
               marginBottom: '0.5rem',
             }}
           >
@@ -169,9 +169,9 @@ export const CareerCard = ({
                 style={{
                   fontSize: '0.78rem',
                   fontWeight: 600,
-                  backgroundColor: 'var(--color-ivory-soft)',
+                  backgroundColor: 'var(--surface)',
                   border: '1px solid var(--color-border-medium)',
-                  color: 'var(--color-forest)',
+                  color: 'var(--text)',
                   padding: '4px 10px',
                   borderRadius: 'var(--radius-sm)',
                 }}
@@ -196,10 +196,7 @@ export const CareerCard = ({
         }}
       >
         <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-          Avg CTC:{' '}
-          <strong style={{ color: 'var(--color-forest)', fontWeight: 700 }}>
-            {salary}
-          </strong>
+          {salary && (<>Avg CTC:{' '}<strong style={{ color: 'var(--text)', fontWeight: 700 }}>{salary}</strong></>)}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

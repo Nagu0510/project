@@ -31,8 +31,8 @@ export class ErrorBoundary extends React.Component {
         <div
           style={{
             minHeight: '100vh',
-            backgroundColor: 'var(--color-warm-ivory, #F6F7ED)',
-            color: 'var(--color-deep-forest, #062E25)',
+            backgroundColor: 'var(--bg)',
+            color: 'var(--text)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -44,11 +44,11 @@ export class ErrorBoundary extends React.Component {
             style={{
               maxWidth: '560px',
               width: '100%',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--surface)',
               borderRadius: '24px',
               padding: '2.5rem',
-              border: '1px solid rgba(6, 46, 37, 0.1)',
-              boxShadow: '0 20px 36px -6px rgba(6, 46, 37, 0.12)',
+              border: '1px solid var(--border)',
+              boxShadow: 'var(--shadow-lg)',
               textAlign: 'center',
             }}
           >
@@ -57,8 +57,8 @@ export class ErrorBoundary extends React.Component {
                 width: '56px',
                 height: '56px',
                 borderRadius: '50%',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                color: '#EF4444',
+                backgroundColor: 'var(--danger-soft)',
+                color: 'var(--danger-text)',
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -68,22 +68,22 @@ export class ErrorBoundary extends React.Component {
               <AlertTriangle size={28} />
             </div>
 
-            <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem', color: '#062E25' }}>
+            <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem', color: 'var(--text)' }}>
               Something went wrong
             </h2>
 
-            <p style={{ fontSize: '0.925rem', color: '#6F8178', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.925rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: 1.5 }}>
               A client runtime issue occurred. Click the button below to reset session storage and reload SkillSense AI.
             </p>
 
             {this.state.error && (
               <pre
                 style={{
-                  backgroundColor: '#F6F7ED',
+                  backgroundColor: 'var(--surface-sunken)',
                   padding: '0.85rem',
                   borderRadius: '10px',
                   fontSize: '0.78rem',
-                  color: '#EF4444',
+                  color: 'var(--danger-text)',
                   textAlign: 'left',
                   overflowX: 'auto',
                   marginBottom: '1.5rem',
@@ -97,8 +97,8 @@ export class ErrorBoundary extends React.Component {
             <button
               onClick={this.handleReload}
               style={{
-                backgroundColor: '#0F766E',
-                color: '#FFFFFF',
+                backgroundColor: 'var(--accent)',
+                color: 'var(--text-on-accent)',
                 border: 'none',
                 padding: '0.75rem 1.75rem',
                 borderRadius: '9999px',

@@ -5,38 +5,6 @@ import { safeStorage } from '../utils/storage';
 
 const AuthContext = createContext(null);
 
-export const DEFAULT_STUDENT_USER = {
-  id: "usr-student-01",
-  name: "Nagappa Gongadi",
-  email: "nagappa@skillsense.ai",
-  role: "student",
-  college: "Engineering College",
-  department: "Computer Science & Engineering",
-  year: "Final Year (2026)",
-  careerInterest: "Backend Developer",
-  currentPath: "Backend Developer",
-  preferredLanguage: "Python 3",
-  skillLevel: "Intermediate",
-  readinessScore: 87,
-  skillProgress: 74,
-  assessmentsCompleted: 1,
-  strongSkills: ["Python", "SQL", "Java", "REST APIs"],
-  gapSkills: ["System Design", "Docker", "Kubernetes"],
-  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-};
-
-export const DEFAULT_ADMIN_USER = {
-  id: "usr-admin-01",
-  name: "SkillSense Admin",
-  email: "admin@skillsense.ai",
-  role: "admin",
-  department: "Platform Engineering & Placement Intelligence",
-  managedPapersCount: 46,
-  extractedQuestionsCount: 2840,
-  verifiedCompanies: 18,
-  avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
-};
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,62 +18,38 @@ export const AuthProvider = ({ children }) => {
     message: 'Create a free SkillSense AI account to continue.',
   });
 
-  // Verify session with FastAPI backend on mount
+  const clearSession = () => {
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
+  // Restore the session from the httpOnly refresh cookie on mount
   useEffect(() => {
     let isMounted = true;
 
     const checkSession = async () => {
-      const token = localStorage.getItem('skillsense_token');
-      if (token) {
-        try {
-          const me = await authService.getMe();
-          if (me && isMounted) {
-            const normalized = normalizeUser(me);
-            setUser(normalized);
-            setIsAuthenticated(true);
-            safeStorage.set('user', normalized);
-            safeStorage.set('auth', 'true');
-          }
-        } catch (err) {
-          console.warn('[Auth] Session validation terminated:', err.message);
-          if (isMounted) {
-            authService.logout();
-            safeStorage.clearSkillSenseKeys();
-            setUser(null);
-            setIsAuthenticated(false);
-          }
+      try {
+        const session = await authService.restoreSession();
+        if (isMounted && session?.user) {
+          setUser(normalizeUser(session.user));
+          setIsAuthenticated(true);
         }
-      } else {
-        if (isMounted) {
-          setUser(null);
-          setIsAuthenticated(false);
-        }
+      } catch (err) {
+        console.warn('[Auth] Session restore failed:', err.message);
       }
-
-      if (isMounted) {
-        setIsAuthLoading(false);
-      }
+      if (isMounted) setIsAuthLoading(false);
     };
 
     const handleExpired = () => {
-      authService.logout();
       safeStorage.clearSkillSenseKeys();
-      if (isMounted) {
-        setUser(null);
-        setIsAuthenticated(false);
-      }
+      if (isMounted) clearSession();
     };
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('skillsense:auth:expired', handleExpired);
-    }
-
+    window.addEventListener('skillsense:auth:expired', handleExpired);
     checkSession();
     return () => {
       isMounted = false;
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('skillsense:auth:expired', handleExpired);
-      }
+      window.removeEventListener('skillsense:auth:expired', handleExpired);
     };
   }, []);
 
@@ -131,67 +75,30 @@ export const AuthProvider = ({ children }) => {
     return false;
   };
 
-  // Student Login with FastAPI & JWT
-  const login = async (email, password) => {
-    const resp = await authService.login(email, password);
-    const apiUser = resp.user;
-    const updatedUser = normalizeUser(apiUser);
-    setUser(updatedUser);
+  const finishLogin = (apiUser) => {
+    const nextUser = normalizeUser(apiUser);
+    setUser(nextUser);
     setIsAuthenticated(true);
-    safeStorage.set('user', updatedUser);
-    safeStorage.set('auth', 'true');
     closeAuthModal();
-    return { success: true, user: updatedUser };
+    return { success: true, user: nextUser };
   };
 
-  // Dedicated Admin Login
-  const adminLogin = async (email, password) => {
-    const resp = await authService.adminLogin(email, password);
-    const apiAdmin = resp.user;
-    const updatedAdmin = {
-      ...DEFAULT_ADMIN_USER,
-      ...apiAdmin,
-      role: 'admin',
-    };
-    setUser(updatedAdmin);
-    setIsAuthenticated(true);
-    safeStorage.set('user', updatedAdmin);
-    safeStorage.set('auth', 'true');
-    closeAuthModal();
-    return { success: true, user: updatedAdmin };
-  };
+  const login = async (email, password) => finishLogin((await authService.login(email, password)).user);
 
-  // Student Registration
-  const signup = async (fullName, email, password, careerInterest) => {
-    const resp = await authService.register(fullName, email, password, careerInterest);
-    const apiUser = resp.user;
-    const newUser = normalizeUser(apiUser);
-    setUser(newUser);
-    setIsAuthenticated(true);
-    safeStorage.set('user', newUser);
-    safeStorage.set('auth', 'true');
-    closeAuthModal();
-    return { success: true, user: newUser };
-  };
+  const adminLogin = async (email, password) => finishLogin((await authService.adminLogin(email, password)).user);
 
-  const logout = () => {
-    authService.logout();
-    safeStorage.clearSkillSenseKeys();
-    setUser(null);
-    setIsAuthenticated(false);
+  const googleLogin = async (credential) => finishLogin((await authService.googleLogin(credential)).user);
+
+  const signup = async (fullName, email, password, careerInterest) =>
+    finishLogin((await authService.register(fullName, email, password, careerInterest)).user);
+
+  const logout = async () => {
+    clearSession(); // sign out in the UI immediately; revoke on the server in the background
+    await authService.logout();
   };
 
   const updateUserProfile = (updatedFields) => {
-    if (user) {
-      setUser((prev) => {
-        const nextUser = normalizeUser({
-          ...prev,
-          ...updatedFields,
-        });
-        safeStorage.set('user', nextUser);
-        return nextUser;
-      });
-    }
+    setUser((prev) => (prev ? normalizeUser({ ...prev, ...updatedFields }) : prev));
   };
 
   return (
@@ -210,6 +117,7 @@ export const AuthProvider = ({ children }) => {
         requireAuth,
         login,
         adminLogin,
+        googleLogin,
         signup,
         logout,
         updateUserProfile,

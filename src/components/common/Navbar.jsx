@@ -1,12 +1,14 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import { Avatar } from './Avatar';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
+import { ThemeToggle } from './ThemeToggle';
 
 const NAV_LINK_STYLE = (active) => ({
   fontSize: '0.9rem',
   fontWeight: active ? 700 : 500,
-  color: active ? 'var(--color-forest)' : 'var(--color-text-muted)',
+  color: active ? 'var(--text)' : 'var(--color-text-muted)',
   textDecoration: 'none',
   padding: '0.35rem 0',
   position: 'relative',
@@ -29,7 +31,7 @@ const NavLink = ({ to, children }) => {
             left: 0,
             right: 0,
             height: '2px',
-            background: 'var(--color-emerald)',
+            background: 'var(--accent)',
             borderRadius: '2px',
           }}
         />
@@ -86,8 +88,8 @@ export const Navbar = () => {
   const activeLinks = isAdmin ? adminLinks : isStudent ? studentLinks : publicLinks;
 
   const headerBg = scrolled
-    ? 'rgba(244, 240, 231, 0.96)'
-    : 'rgba(244, 240, 231, 0.8)';
+    ? 'color-mix(in srgb, var(--bg) 96%, transparent)'
+    : 'color-mix(in srgb, var(--bg) 80%, transparent)';
 
   return (
     <header
@@ -139,7 +141,7 @@ export const Navbar = () => {
               fontFamily: 'var(--font-serif)',
               fontSize: '1.35rem',
               fontWeight: 400,
-              color: 'var(--color-forest)',
+              color: 'var(--text)',
               letterSpacing: '-0.015em',
               lineHeight: 1,
             }}
@@ -150,8 +152,8 @@ export const Navbar = () => {
                 fontFamily: 'var(--font-sans)',
                 fontWeight: 800,
                 fontSize: '0.7rem',
-                color: 'var(--color-emerald)',
-                background: 'var(--color-lime-soft)',
+                color: 'var(--accent)',
+                background: 'var(--lime-soft)',
                 padding: '2px 7px',
                 borderRadius: '4px',
                 verticalAlign: 'middle',
@@ -184,6 +186,7 @@ export const Navbar = () => {
           style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}
           className="desktop-actions"
         >
+          <ThemeToggle />
           {isAuthenticated && user ? (
             <>
               {/* Avatar + Name */}
@@ -196,12 +199,12 @@ export const Navbar = () => {
                   padding: '5px 10px 5px 5px',
                   border: '1px solid var(--color-border-medium)',
                   borderRadius: 'var(--radius-full)',
-                  background: 'var(--color-white)',
+                  background: 'var(--surface)',
                   textDecoration: 'none',
                   transition: 'border-color 200ms, box-shadow 200ms',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--color-emerald)';
+                  e.currentTarget.style.borderColor = 'var(--accent)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                 }}
                 onMouseLeave={(e) => {
@@ -209,29 +212,12 @@ export const Navbar = () => {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <span
-                  style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '50%',
-                    background: 'var(--color-forest)',
-                    color: 'var(--color-lime)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontFamily: 'var(--font-sans)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    flexShrink: 0,
-                  }}
-                >
-                  {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-                </span>
+                <Avatar user={user} size={28} />
                 <span
                   style={{
                     fontSize: '0.85rem',
                     fontWeight: 600,
-                    color: 'var(--color-forest)',
+                    color: 'var(--text)',
                     maxWidth: '100px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -261,25 +247,28 @@ export const Navbar = () => {
           )}
         </div>
 
-        {/* MOBILE MENU TOGGLE */}
+        {/* MOBILE: theme toggle + menu button */}
+        <div className="mobile-menu-btn" style={{ display: 'none', alignItems: 'center', gap: '8px' }}>
+        <ThemeToggle />
         <button
           onClick={() => setMobileMenuOpen((v) => !v)}
-          className="mobile-menu-btn"
           aria-label="Toggle menu"
+          aria-expanded={mobileMenuOpen}
           style={{
-            display: 'none',
+            display: 'flex',
             background: 'transparent',
             border: '1px solid var(--color-border-medium)',
             borderRadius: 'var(--radius-sm)',
             padding: '6px 10px',
             cursor: 'pointer',
-            color: 'var(--color-forest)',
+            color: 'var(--text)',
             fontSize: '1.1rem',
             lineHeight: 1,
           }}
         >
           {mobileMenuOpen ? '✕' : '☰'}
         </button>
+        </div>
       </div>
 
       {/* MOBILE MENU */}
@@ -293,7 +282,7 @@ export const Navbar = () => {
             style={{
               overflow: 'hidden',
               borderTop: '1px solid var(--color-border-subtle)',
-              background: 'var(--color-ivory-soft)',
+              background: 'var(--surface)',
             }}
           >
             <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
@@ -306,7 +295,7 @@ export const Navbar = () => {
                     padding: '0.75rem 0',
                     fontSize: '1rem',
                     fontWeight: 600,
-                    color: 'var(--color-forest)',
+                    color: 'var(--text)',
                     borderBottom: '1px solid var(--color-border-subtle)',
                     textDecoration: 'none',
                   }}
@@ -337,12 +326,12 @@ export const Navbar = () => {
 
       {/* Responsive CSS */}
       <style>{`
-        @media (min-width: 1024px) {
+        @media (min-width: 769px) { /* single layout breakpoint: 768px, see src/utils/layout.js */
           .desktop-nav-links { display: flex !important; }
           .desktop-actions { display: flex !important; }
           .mobile-menu-btn { display: none !important; }
         }
-        @media (max-width: 1023px) {
+        @media (max-width: 768px) {
           .desktop-nav-links { display: none !important; }
           .desktop-actions { display: none !important; }
           .mobile-menu-btn { display: flex !important; }

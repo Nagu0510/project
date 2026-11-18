@@ -6,7 +6,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Frontend Developer",
         "slug": "frontend-developer",
         "description": "Craft responsive, interactive, accessible, and high-performance client web interfaces using modern frameworks, component design systems, and reactive state management.",
-        "match_percentage": 82,
         "required_skills": ["HTML", "CSS", "JavaScript", "React", "TypeScript", "Git/GitHub", "REST API integration", "Responsive Design", "Testing"],
         "average_salary": "₹7 LPA - ₹13 LPA",
         "active_openings": 128,
@@ -122,7 +121,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Backend Developer",
         "slug": "backend-developer",
         "description": "Design and architect server-side APIs, high-throughput microservices, distributed caching, relational/NoSQL databases, and security architecture.",
-        "match_percentage": 87,
         "required_skills": ["Python/Java", "FastAPI or backend framework concepts", "REST APIs", "Databases", "Authentication", "Data Structures", "Git/GitHub", "Deployment"],
         "average_salary": "₹8.5 LPA - ₹15 LPA",
         "active_openings": 142,
@@ -238,7 +236,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Full Stack Developer",
         "slug": "full-stack-developer",
         "description": "Master end-to-end application engineering, unifying responsive reactive frontends with scalable server architectures, databases, and deployment pipelines.",
-        "match_percentage": 80,
         "required_skills": ["HTML", "CSS", "JavaScript", "React", "Backend Development", "REST APIs", "MongoDB/Databases", "Authentication", "Git", "Deployment"],
         "average_salary": "₹9 LPA - ₹16 LPA",
         "active_openings": 165,
@@ -354,7 +351,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Python Developer",
         "slug": "python-developer",
         "description": "Specialized Python software engineering focusing on object-oriented system design, data processing, backend API frameworks, and database automation.",
-        "match_percentage": 85,
         "required_skills": ["Python Basics", "OOP", "Functions", "Collections", "Exception Handling", "File Handling", "Data Structures", "APIs", "Databases"],
         "average_salary": "₹7.5 LPA - ₹14 LPA",
         "active_openings": 135,
@@ -470,7 +466,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Java Developer",
         "slug": "java-developer",
         "description": "Enterprise software engineering using Java 17/21, Spring Boot microservices, multithreading, JDBC/JPA databases, and robust OOP architecture.",
-        "match_percentage": 83,
         "required_skills": ["Java Basics", "OOP", "Collections", "Exception Handling", "Multithreading", "JDBC", "Data Structures", "REST concepts"],
         "average_salary": "₹8 LPA - ₹15 LPA",
         "active_openings": 150,
@@ -586,7 +581,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Data Analyst",
         "slug": "data-analyst",
         "description": "Transform enterprise datasets into actionable insights using structured queries, statistical dashboards, Pandas data munging, and BI reporting tools.",
-        "match_percentage": 79,
         "required_skills": ["Python", "SQL", "Excel concepts", "Statistics", "Pandas", "NumPy", "Data Visualization", "Data Cleaning"],
         "average_salary": "₹6.5 LPA - ₹12 LPA",
         "active_openings": 115,
@@ -702,7 +696,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Data Scientist",
         "slug": "data-scientist",
         "description": "Harness statistical modeling, machine learning algorithms, deep predictive pipelines, feature engineering, and experimental analytics.",
-        "match_percentage": 73,
         "required_skills": ["Python", "Statistics", "Linear Algebra", "Pandas", "NumPy", "Machine Learning", "Data Modeling", "Model Evaluation", "Deep Learning basics"],
         "average_salary": "₹10 LPA - ₹18 LPA",
         "active_openings": 95,
@@ -818,7 +811,6 @@ CAREER_PATHS_CONFIG = {
         "title": "AI / Machine Learning Engineer",
         "slug": "ai-ml-engineer",
         "description": "Engineer, train, fine-tune, and deploy machine learning pipelines, deep neural networks, computer vision models, and LLM-powered systems.",
-        "match_percentage": 70,
         "required_skills": ["Python", "Statistics", "Linear Algebra basics", "NumPy", "Pandas", "Machine Learning", "NLP basics", "Model Evaluation", "Deployment basics"],
         "average_salary": "₹10.5 LPA - ₹19 LPA",
         "active_openings": 82,
@@ -934,7 +926,6 @@ CAREER_PATHS_CONFIG = {
         "title": "Cloud / DevOps Engineer",
         "slug": "cloud-devops-engineer",
         "description": "Architect resilient cloud infrastructures, automate CI/CD pipelines, orchestrate Kubernetes clusters, and enforce enterprise security.",
-        "match_percentage": 68,
         "required_skills": ["Linux OS", "Docker", "Kubernetes", "AWS / GCP", "CI/CD (GitHub Actions)", "Terraform", "Networking", "Monitoring"],
         "average_salary": "₹9.5 LPA - ₹17.5 LPA",
         "active_openings": 90,
@@ -1055,7 +1046,6 @@ def get_all_career_paths():
             "title": v["title"],
             "slug": v.get("slug", v["id"]),
             "description": v["description"],
-            "match_percentage": v["match_percentage"],
             "required_skills": v["required_skills"],
             "average_salary": v["average_salary"],
             "active_openings": v["active_openings"],
@@ -1076,3 +1066,14 @@ def get_career_path_by_id_or_title(identifier: str):
         if clean in v["title"].lower() or clean in k:
             return v
     return CAREER_PATHS_CONFIG["backend"]
+
+
+def find_career_path(identifier: str):
+    """Strict lookup by id, slug or exact title (case-insensitive). Returns None when unknown."""
+    clean = (identifier or "").lower().strip()
+    if not clean:
+        return None
+    for key, cfg in CAREER_PATHS_CONFIG.items():
+        if clean in (key.lower(), cfg["id"].lower(), cfg.get("slug", "").lower(), cfg["title"].lower()):
+            return cfg
+    return None

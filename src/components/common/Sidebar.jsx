@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
+import { Avatar } from './Avatar';
+import React from 'react';
+import { useMobileSidebar } from '../../hooks/useMobileLayout';
+import { MobileSidebarChrome } from './MobileSidebarChrome';
+import { ThemeToggle } from './ThemeToggle';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Compass,
   MapPin,
+  BookOpen,
   FileCheck2,
   Code2,
+  History,
   FileText,
   Briefcase,
   HelpCircle,
@@ -15,16 +21,19 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useNotifications } from '../../context/NotificationContext';
 
 export const Sidebar = () => {
   const { user, logout } = useAuth();
   const { addToast } = useToast();
+  const { toggleDrawer, unreadCount } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const { isMobile, open: mobileOpen, setOpen: setMobileOpen, close: closeMobile, toggle: toggleMobile } = useMobileSidebar();
 
   const handleLogout = () => {
     logout();
@@ -37,8 +46,10 @@ export const Sidebar = () => {
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { label: 'Career Paths', path: '/career-paths', icon: Compass },
     { label: 'Roadmap', path: '/roadmap', icon: MapPin },
+    { label: 'Courses', path: '/courses', icon: BookOpen },
     { label: 'Skill Assessment', path: '/assessment', icon: FileCheck2 },
     { label: 'Practice', path: '/practice', icon: Code2 },
+    { label: 'My Submissions', path: '/my-submissions', icon: History },
     { label: 'Resume Analyzer', path: '/resume-analyzer', icon: FileText },
     { label: 'Placements', path: '/placement-tracker', icon: Briefcase },
     { label: 'Previous Questions', path: '/previous-questions', icon: HelpCircle, badge: 'Hot' },
@@ -52,85 +63,10 @@ export const Sidebar = () => {
 
   return (
     <>
-      {/* Mobile Top Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0.85rem 1.25rem',
-          backgroundColor: 'var(--color-white)',
-          borderBottom: '1px solid var(--color-border-subtle)',
-          position: 'sticky',
-          top: 0,
-          zIndex: 90,
-        }}
-        className="mobile-dashboard-header"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: 'var(--color-deep-forest)',
-              color: 'var(--color-lime)',
-              fontSize: '1rem',
-            }}
-          >
-            ✦
-          </span>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '1.25rem', color: 'var(--color-deep-forest)' }}>
-            SkillSense AI
-          </span>
-        </div>
+      {isMobile && <MobileSidebarChrome title="SkillSense AI" open={mobileOpen} onToggle={toggleMobile} onClose={closeMobile} />}
 
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--color-deep-forest)',
-            cursor: 'pointer',
-            padding: '4px',
-          }}
-        >
-          {mobileOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-
-      {/* Backdrop for mobile */}
-      {mobileOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(6, 46, 37, 0.4)',
-            zIndex: 95,
-          }}
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Student Sidebar Container */}
-      <aside
-        className={`sidebar-container ${mobileOpen ? 'mobile-open' : ''}`}
-        style={{
-          width: 'var(--sidebar-width)',
-          height: '100vh',
-          position: 'sticky',
-          top: 0,
-          backgroundColor: 'var(--color-white)',
-          borderRight: '1px solid var(--color-border-subtle)',
-          display: 'flex',
-          flexDirection: 'column',
-          zIndex: 100,
-          transition: 'transform 0.25s ease',
-        }}
-      >
+            {/* Student Sidebar Container */}
+      <aside className={`app-sidebar ${mobileOpen ? 'open' : ''}`} aria-label="Main navigation">
         {/* Brand Header */}
         <div
           style={{
@@ -138,39 +74,84 @@ export const Sidebar = () => {
             borderBottom: '1px solid var(--color-border-subtle)',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            justifyContent: 'space-between',
           }}
         >
-          <div
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '34px',
+                height: '34px',
+                borderRadius: '10px',
+                backgroundColor: 'var(--color-deep-forest)',
+                color: 'var(--color-lime)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.1rem',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              ✦
+            </div>
+            <div>
+              <div
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: '1.35rem',
+                  color: 'var(--text)',
+                  lineHeight: 1.1,
+                }}
+              >
+                SkillSense AI
+              </div>
+              <div style={{ fontSize: '0.725rem', color: 'var(--color-muted-green)', fontWeight: 500 }}>
+                Student Learning Track
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+          {!isMobile && <ThemeToggle />}
+          <button
+            onClick={toggleDrawer}
+            title="Notifications" aria-label="Notifications"
             style={{
-              width: '34px',
-              height: '34px',
-              borderRadius: '10px',
-              backgroundColor: 'var(--color-deep-forest)',
-              color: 'var(--color-lime)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text)',
+              padding: '6px',
+              borderRadius: 'var(--radius-md)',
+              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.1rem',
-              boxShadow: '0 2px 8px rgba(6, 46, 37, 0.2)',
             }}
           >
-            ✦
-          </div>
-          <div>
-            <div
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '1.35rem',
-                color: 'var(--color-deep-forest)',
-                lineHeight: 1.1,
-              }}
-            >
-              SkillSense AI
-            </div>
-            <div style={{ fontSize: '0.725rem', color: 'var(--color-muted-green)', fontWeight: 500 }}>
-              Student Learning Track
-            </div>
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '2px',
+                  right: '2px',
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--text-on-accent)',
+                  fontSize: '0.62rem',
+                  fontWeight: 700,
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </button>
           </div>
         </div>
 
@@ -213,29 +194,29 @@ export const Sidebar = () => {
                   justifyContent: 'space-between',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
-                  color: isActive ? 'var(--color-emerald)' : 'var(--color-charcoal-subtle)',
-                  backgroundColor: isActive ? 'var(--color-emerald-alpha)' : 'transparent',
+                  color: isActive ? 'var(--accent)' : 'var(--text)',
+                  backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
                   fontWeight: isActive ? 600 : 500,
                   fontSize: '0.885rem',
                   textDecoration: 'none',
                   transition: 'all 0.15s ease',
-                  border: isActive ? '1px solid rgba(15, 118, 110, 0.18)' : '1px solid transparent',
+                  border: isActive ? '1px solid var(--accent-soft-strong)' : '1px solid transparent',
                 }}
                 onMouseEnter={(e) => {
                   if (!isActive) {
-                    e.currentTarget.style.backgroundColor = 'var(--color-ivory-surface)';
-                    e.currentTarget.style.color = 'var(--color-deep-forest)';
+                    e.currentTarget.style.backgroundColor = 'var(--surface)';
+                    e.currentTarget.style.color = 'var(--text)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isActive) {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = 'var(--color-charcoal-subtle)';
+                    e.currentTarget.style.color = 'var(--text)';
                   }
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Icon size={18} color={isActive ? 'var(--color-emerald)' : 'var(--color-muted-green)'} />
+                  <Icon size={18} color={isActive ? 'var(--accent)' : 'var(--color-muted-green)'} />
                   <span>{item.label}</span>
                 </div>
                 {item.badge && (
@@ -245,8 +226,8 @@ export const Sidebar = () => {
                       fontWeight: 700,
                       padding: '2px 6px',
                       borderRadius: 'var(--radius-full)',
-                      backgroundColor: 'var(--color-lime-soft)',
-                      color: 'var(--color-deep-forest)',
+                      backgroundColor: 'var(--lime-soft)',
+                      color: 'var(--text)',
                     }}
                   >
                     {item.badge}
@@ -284,16 +265,16 @@ export const Sidebar = () => {
                   gap: '10px',
                   padding: '0.65rem 0.85rem',
                   borderRadius: 'var(--radius-md)',
-                  color: isActive ? 'var(--color-emerald)' : 'var(--color-charcoal-subtle)',
-                  backgroundColor: isActive ? 'var(--color-emerald-alpha)' : 'transparent',
+                  color: isActive ? 'var(--accent)' : 'var(--text)',
+                  backgroundColor: isActive ? 'var(--accent-soft)' : 'transparent',
                   fontWeight: isActive ? 600 : 500,
                   fontSize: '0.885rem',
                   textDecoration: 'none',
                   transition: 'all 0.15s ease',
-                  border: isActive ? '1px solid rgba(15, 118, 110, 0.18)' : '1px solid transparent',
+                  border: isActive ? '1px solid var(--accent-soft-strong)' : '1px solid transparent',
                 }}
               >
-                <Icon size={18} color={isActive ? 'var(--color-emerald)' : 'var(--color-muted-green)'} />
+                <Icon size={18} color={isActive ? 'var(--accent)' : 'var(--color-muted-green)'} />
                 <span>{item.label}</span>
               </NavLink>
             );
@@ -305,42 +286,26 @@ export const Sidebar = () => {
           style={{
             padding: '1rem 1.15rem',
             borderTop: '1px solid var(--color-border-subtle)',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: 'var(--radius-full)',
-                backgroundColor: 'var(--color-emerald)',
-                color: 'var(--color-white)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: '0.85rem',
-                flexShrink: 0,
-              }}
-            >
-              {user?.name ? user.name.charAt(0) : 'N'}
-            </div>
+            <Avatar user={user} size={36} background="var(--accent)" color="var(--color-white)" />
             <div style={{ minWidth: 0 }}>
               <div
                 style={{
                   fontSize: '0.85rem',
                   fontWeight: 600,
-                  color: 'var(--color-deep-forest)',
+                  color: 'var(--text)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                 }}
               >
-                {user?.name || 'Nagappa'}
+                {user?.name || 'Student'}
               </div>
               <div
                 style={{
@@ -351,7 +316,7 @@ export const Sidebar = () => {
                   textOverflow: 'ellipsis',
                 }}
               >
-                Student · {user?.careerInterest || 'Backend Dev'}
+                Student{user?.careerInterest ? ` · ${user.careerInterest}` : ''}
               </div>
             </div>
           </div>
@@ -379,23 +344,6 @@ export const Sidebar = () => {
         </div>
       </aside>
 
-      <style>{`
-        .mobile-dashboard-header { display: none; }
-        @media (max-width: 860px) {
-          .mobile-dashboard-header { display: flex !important; }
-          .sidebar-container {
-            position: fixed !important;
-            top: 0;
-            left: 0;
-            bottom: 0;
-            transform: translateX(-100%);
-            box-shadow: var(--shadow-xl);
-          }
-          .sidebar-container.mobile-open {
-            transform: translateX(0);
-          }
-        }
-      `}</style>
     </>
   );
 };

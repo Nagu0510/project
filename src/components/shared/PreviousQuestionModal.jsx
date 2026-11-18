@@ -1,3 +1,4 @@
+import { formatExamOrigin } from '../../utils/examOrigin';
 import React from 'react';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
@@ -50,7 +51,7 @@ export const PreviousQuestionModal = ({
         <div
           style={{
             padding: '1.15rem 1.35rem',
-            backgroundColor: 'var(--color-ivory-surface)',
+            backgroundColor: 'var(--surface)',
             borderRadius: 'var(--radius-lg)',
             border: '1px solid var(--color-border-subtle)',
             display: 'flex',
@@ -67,7 +68,7 @@ export const PreviousQuestionModal = ({
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: '1.35rem',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
                 marginTop: '2px',
               }}
             >
@@ -78,16 +79,16 @@ export const PreviousQuestionModal = ({
           <div
             style={{
               textAlign: 'right',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
               padding: '8px 14px',
               borderRadius: 'var(--radius-md)',
-              border: '1px solid rgba(15, 118, 110, 0.2)',
+              border: '1px solid var(--accent-soft-strong)',
             }}
           >
-            <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-emerald)' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--accent)' }}>
               Similarity
             </div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', color: 'var(--color-deep-forest)', lineHeight: 1 }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '1.5rem', color: 'var(--text)', lineHeight: 1 }}>
               {similarity}%
             </div>
           </div>
@@ -105,14 +106,14 @@ export const PreviousQuestionModal = ({
             style={{
               padding: '0.85rem 1rem',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
             }}
           >
             <div style={{ fontSize: '0.72rem', color: 'var(--color-muted-green)', fontWeight: 600 }}>
               Previously Asked In
             </div>
-            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--color-deep-forest)', marginTop: '3px' }}>
+            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
               {exam}
             </div>
           </div>
@@ -121,14 +122,14 @@ export const PreviousQuestionModal = ({
             style={{
               padding: '0.85rem 1rem',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
             }}
           >
             <div style={{ fontSize: '0.72rem', color: 'var(--color-muted-green)', fontWeight: 600 }}>
               Topic Category
             </div>
-            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--color-emerald)', marginTop: '3px' }}>
+            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--accent)', marginTop: '3px' }}>
               {topic}
             </div>
           </div>
@@ -137,14 +138,14 @@ export const PreviousQuestionModal = ({
             style={{
               padding: '0.85rem 1rem',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
             }}
           >
             <div style={{ fontSize: '0.72rem', color: 'var(--color-muted-green)', fontWeight: 600 }}>
               Difficulty Level
             </div>
-            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--color-deep-forest)', marginTop: '3px' }}>
+            <div style={{ fontSize: '0.925rem', fontWeight: 700, color: 'var(--text)', marginTop: '3px' }}>
               {difficulty}
             </div>
           </div>
@@ -166,7 +167,7 @@ export const PreviousQuestionModal = ({
             }}
           >
             <span>Other Historical Appearances</span>
-            <span style={{ color: 'var(--color-emerald)', fontWeight: 700 }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 700 }}>
               Total: {appearancesCount || appearances || 5} Times
             </span>
           </div>
@@ -178,7 +179,7 @@ export const PreviousQuestionModal = ({
                 style={{
                   padding: '0.75rem 1rem',
                   borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--color-ivory-surface)',
+                  backgroundColor: 'var(--surface)',
                   border: '1px solid var(--color-border-subtle)',
                   display: 'flex',
                   alignItems: 'center',
@@ -186,9 +187,9 @@ export const PreviousQuestionModal = ({
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Building2 size={16} color="var(--color-emerald)" />
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-deep-forest)' }}>
-                    {item.company} {item.exam}
+                  <Building2 size={16} color="var(--accent)" />
+                  <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text)' }}>
+                    {formatExamOrigin(item.company, item.exam, item.year)}
                   </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: 'var(--color-muted-green)' }}>
@@ -205,10 +206,10 @@ export const PreviousQuestionModal = ({
           style={{
             padding: '0.85rem 1rem',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: 'rgba(199, 243, 107, 0.25)',
-            border: '1px solid rgba(199, 243, 107, 0.5)',
+            backgroundColor: 'var(--lime-soft)',
+            border: '1px solid var(--accent-soft-strong)',
             fontSize: '0.825rem',
-            color: 'var(--color-dark-emerald)',
+            color: 'var(--accent)',
             lineHeight: 1.5,
           }}
         >

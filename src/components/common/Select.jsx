@@ -24,11 +24,11 @@ export const Select = ({
             display: 'block',
             fontSize: '0.875rem',
             fontWeight: 600,
-            color: 'var(--color-deep-forest)',
+            color: 'var(--text)',
             marginBottom: '0.4rem',
           }}
         >
-          {label} {required && <span style={{ color: 'var(--color-emerald)' }}>*</span>}
+          {label} {required && <span style={{ color: 'var(--accent)' }}>*</span>}
         </label>
       )}
 
@@ -44,8 +44,8 @@ export const Select = ({
             padding: '0.7rem 2.5rem 0.7rem 1rem',
             borderRadius: 'var(--radius-md)',
             border: `1px solid ${error ? 'var(--color-error)' : 'var(--color-border-medium)'}`,
-            backgroundColor: disabled ? 'var(--color-ivory-muted)' : 'var(--color-white)',
-            color: 'var(--color-deep-forest)',
+            backgroundColor: disabled ? 'var(--bg-subtle)' : 'var(--surface)',
+            color: 'var(--text)',
             fontSize: '0.925rem',
             outline: 'none',
             appearance: 'none',
@@ -55,7 +55,7 @@ export const Select = ({
           }}
           onFocus={(e) => {
             if (!error) {
-              e.target.style.borderColor = 'var(--color-emerald)';
+              e.target.style.borderColor = 'var(--accent)';
               e.target.style.boxShadow = '0 0 0 3px var(--color-emerald-alpha)';
             }
           }}

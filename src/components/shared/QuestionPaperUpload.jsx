@@ -5,7 +5,11 @@ import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { useToast } from '../../context/ToastContext';
 import { adminService } from '../../services/adminService';
-import { mockCompaniesList, mockPaperTypes, mockYearsList } from '../../data/mockQuestionPapers';
+
+// Choices offered by the upload form (form options, not data)
+const PAPER_COMPANIES = ['TCS', 'Infosys', 'Wipro', 'Accenture', 'Cognizant', 'Capgemini', 'Deloitte', 'Amazon', 'Microsoft', 'Google', 'Other'];
+const PAPER_TYPES = ['Coding', 'Technical', 'Aptitude', 'MCQ', 'Mixed'];
+const PAPER_YEARS = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i));
 
 export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => {
   const { addToast } = useToast();
@@ -73,6 +77,11 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
       addToast('Please select a question paper file to upload.', 'error');
       return;
     }
+    if (file.rawFile.size > 8 * 1024 * 1024) {
+      setUploadError('The file is larger than the 8 MB limit.');
+      addToast('The file is larger than the 8 MB limit.', 'error');
+      return;
+    }
 
     setIsProcessing(true);
     setProcessingStep(0);
@@ -100,7 +109,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
         setIsProcessing(false);
         setIsCompleted(true);
         setUploadedResult(response);
-        addToast(`Paper analyzed! ${response.questions_count || 10} questions extracted.`, 'success');
+        addToast(`Paper read: ${response.questions_count ?? 0} questions are waiting for review.${response.ocr_used ? ` OCR confidence ${response.ocr_confidence}%.` : ''}`, response.warnings?.length ? 'warning' : 'success');
         if (onUploadComplete) {
           onUploadComplete(response);
         }
@@ -129,7 +138,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
       className="card-static"
       style={{
         padding: '2rem',
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         borderRadius: 'var(--radius-xl)',
         border: '1px solid var(--color-border-subtle)',
         boxShadow: 'var(--shadow-md)',
@@ -138,7 +147,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
       {!isProcessing && !isCompleted ? (
         <form onSubmit={startAnalysisSimulation}>
           <div style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.35rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: 0 }}>
+            <h3 style={{ fontSize: '1.35rem', fontFamily: 'var(--font-serif)', color: 'var(--text)', margin: 0 }}>
               Upload Previous Question Paper
             </h3>
             <p style={{ fontSize: '0.875rem', color: 'var(--color-muted-green)', marginTop: '4px' }}>
@@ -149,12 +158,12 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
           {uploadError && (
             <div
               style={{
-                backgroundColor: '#FEF2F2',
-                border: '1px solid #F87171',
+                backgroundColor: 'var(--danger-soft)',
+                border: '1px solid var(--danger-border)',
                 borderRadius: 'var(--radius-md)',
                 padding: '0.85rem 1rem',
                 marginBottom: '1.25rem',
-                color: '#991B1B',
+                color: 'var(--danger-text)',
                 fontSize: '0.875rem',
                 fontWeight: 600,
                 display: 'flex',
@@ -175,8 +184,8 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
             style={{
               padding: '2rem 1.5rem',
               borderRadius: 'var(--radius-lg)',
-              border: `2px dashed ${isDragging ? 'var(--color-emerald)' : 'var(--color-border-medium)'}`,
-              backgroundColor: isDragging ? 'var(--color-emerald-alpha)' : 'var(--color-ivory-surface)',
+              border: `2px dashed ${isDragging ? 'var(--accent)' : 'var(--color-border-medium)'}`,
+              backgroundColor: isDragging ? 'var(--accent-soft)' : 'var(--surface)',
               textAlign: 'center',
               cursor: 'pointer',
               marginBottom: '1.5rem',
@@ -187,7 +196,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
             <input
               id="paper-file-input"
               type="file"
-              accept=".pdf,.docx,.txt,.png,.jpg,.jpeg"
+              accept=".pdf,.docx,.txt,.json,.png,.jpg,.jpeg,.webp" data-testid="paper-file-input"
               style={{ display: 'none' }}
               onChange={handleFileSelect}
             />
@@ -199,24 +208,24 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
                     width: '52px',
                     height: '52px',
                     borderRadius: 'var(--radius-full)',
-                    backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                    backgroundColor: 'var(--accent-soft)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--color-emerald)',
+                    color: 'var(--accent)',
                     marginBottom: '0.75rem',
                   }}
                 >
                   <Upload size={24} />
                 </div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-deep-forest)' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)' }}>
                   Drag and drop your question paper here
                 </div>
-                <div style={{ fontSize: '0.825rem', color: 'var(--color-emerald)', fontWeight: 600, marginTop: '2px' }}>
+                <div style={{ fontSize: '0.825rem', color: 'var(--accent)', fontWeight: 600, marginTop: '2px' }}>
                   or Browse files
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)', marginTop: '6px' }}>
-                  Supported formats: PDF · DOCX · TXT · PNG · JPG
+                  PDF · DOCX · TXT · JSON · PNG · JPG · WEBP, 8 MB at most. Scans and photos are read with OCR. Every extracted question starts as Needs Review.
                 </div>
               </div>
             ) : (
@@ -225,7 +234,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  backgroundColor: 'var(--color-white)',
+                  backgroundColor: 'var(--surface)',
                   padding: '0.85rem 1.25rem',
                   borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--color-border-subtle)',
@@ -235,9 +244,9 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <FileText size={22} color="var(--color-emerald)" />
+                  <FileText size={22} color="var(--accent)" />
                   <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '0.885rem', fontWeight: 600, color: 'var(--color-deep-forest)' }}>
+                    <div style={{ fontSize: '0.885rem', fontWeight: 600, color: 'var(--text)' }}>
                       {file.name}
                     </div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--color-muted-green)' }}>
@@ -277,7 +286,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               label="Company"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              options={mockCompaniesList}
+              options={PAPER_COMPANIES}
               required
             />
 
@@ -293,7 +302,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               label="Year"
               value={year}
               onChange={(e) => setYear(e.target.value)}
-              options={mockYearsList}
+              options={PAPER_YEARS}
               required
             />
 
@@ -301,7 +310,7 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               label="Paper Type"
               value={paperType}
               onChange={(e) => setPaperType(e.target.value)}
-              options={mockPaperTypes}
+              options={PAPER_TYPES}
               required
             />
 
@@ -340,17 +349,17 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               width: '64px',
               height: '64px',
               borderRadius: 'var(--radius-full)',
-              backgroundColor: 'rgba(15, 118, 110, 0.1)',
+              backgroundColor: 'var(--accent-soft)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               margin: '0 auto 1.25rem',
             }}
           >
-            <Loader2 size={32} color="var(--color-emerald)" className="animate-spin" />
+            <Loader2 size={32} color="var(--accent)" className="animate-spin" />
           </div>
 
-          <h3 style={{ fontSize: '1.4rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: '0 0 0.5rem 0' }}>
+          <h3 style={{ fontSize: '1.4rem', fontFamily: 'var(--font-serif)', color: 'var(--text)', margin: '0 0 0.5rem 0' }}>
             Extracting Question Intelligence
           </h3>
           <p style={{ fontSize: '0.885rem', color: 'var(--color-muted-green)', marginBottom: '1.75rem' }}>
@@ -371,20 +380,20 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
                     gap: '10px',
                     padding: '8px 12px',
                     borderRadius: 'var(--radius-md)',
-                    backgroundColor: isCurrent ? 'var(--color-lime-soft)' : isDone ? 'var(--color-ivory-surface)' : 'transparent',
-                    border: `1px solid ${isCurrent ? 'rgba(199, 243, 107, 0.5)' : isDone ? 'var(--color-border-subtle)' : 'transparent'}`,
+                    backgroundColor: isCurrent ? 'var(--lime-soft)' : isDone ? 'var(--surface)' : 'transparent',
+                    border: `1px solid ${isCurrent ? 'var(--accent-soft-strong)' : isDone ? 'var(--color-border-subtle)' : 'transparent'}`,
                     opacity: idx > processingStep ? 0.35 : 1,
                     transition: 'all 0.3s ease',
                   }}
                 >
                   {isDone ? (
-                    <CheckCircle2 size={18} color="#10B981" />
+                    <CheckCircle2 size={18} color="var(--success-text)" />
                   ) : isCurrent ? (
-                    <Loader2 size={18} color="var(--color-emerald)" className="animate-spin" />
+                    <Loader2 size={18} color="var(--accent)" className="animate-spin" />
                   ) : (
                     <span style={{ width: '18px', height: '18px', borderRadius: '50%', border: '1px solid var(--color-border-medium)', display: 'inline-block' }} />
                   )}
-                  <span style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 700 : 500, color: 'var(--color-deep-forest)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 700 : 500, color: 'var(--text)' }}>
                     {stepText}
                   </span>
                 </div>
@@ -400,21 +409,21 @@ export const QuestionPaperUpload = ({ onUploadComplete, onReviewQuestions }) => 
               width: '64px',
               height: '64px',
               borderRadius: 'var(--radius-full)',
-              backgroundColor: 'var(--color-lime-soft)',
+              backgroundColor: 'var(--lime-soft)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
               margin: '0 auto 1.25rem',
             }}
           >
-            <CheckCircle2 size={34} color="var(--color-emerald)" />
+            <CheckCircle2 size={34} color="var(--accent)" />
           </div>
 
-          <h3 style={{ fontSize: '1.6rem', fontFamily: 'var(--font-serif)', color: 'var(--color-deep-forest)', margin: '0 0 0.4rem 0' }}>
+          <h3 style={{ fontSize: '1.6rem', fontFamily: 'var(--font-serif)', color: 'var(--text)', margin: '0 0 0.4rem 0' }}>
             Paper analyzed successfully
           </h3>
-          <p style={{ fontSize: '1.05rem', color: 'var(--color-emerald)', fontWeight: 700, marginBottom: '1.5rem' }}>
+          <p style={{ fontSize: '1.05rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '1.5rem' }}>
             120 questions detected & indexed
           </p>
 

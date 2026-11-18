@@ -29,7 +29,7 @@ export const QuestionPaperTable = ({
     <div
       className="card-static"
       style={{
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         borderRadius: 'var(--radius-xl)',
         border: '1px solid var(--color-border-subtle)',
         boxShadow: 'var(--shadow-md)',
@@ -46,7 +46,7 @@ export const QuestionPaperTable = ({
           justifyContent: 'space-between',
           gap: '1rem',
           flexWrap: 'wrap',
-          backgroundColor: 'var(--color-ivory-surface)',
+          backgroundColor: 'var(--surface)',
         }}
       >
         <div style={{ position: 'relative', minWidth: '240px', flex: 1 }}>
@@ -67,7 +67,7 @@ export const QuestionPaperTable = ({
               border: '1px solid var(--color-border-medium)',
               fontSize: '0.875rem',
               outline: 'none',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
             }}
           />
         </div>
@@ -85,7 +85,7 @@ export const QuestionPaperTable = ({
               border: '1px solid var(--color-border-medium)',
               fontSize: '0.85rem',
               outline: 'none',
-              backgroundColor: 'var(--color-white)',
+              backgroundColor: 'var(--surface)',
               cursor: 'pointer',
             }}
           >
@@ -105,7 +105,7 @@ export const QuestionPaperTable = ({
             <tr
               style={{
                 borderBottom: '1px solid var(--color-border-subtle)',
-                backgroundColor: 'rgba(6, 46, 37, 0.02)',
+                backgroundColor: 'var(--accent-soft)',
                 color: 'var(--color-muted-green)',
                 fontWeight: 700,
                 fontSize: '0.75rem',
@@ -131,19 +131,19 @@ export const QuestionPaperTable = ({
                     borderBottom: '1px solid var(--color-border-subtle)',
                     transition: 'background-color 0.15s ease',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-ivory-surface)')}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--surface)')}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
-                  <td style={{ padding: '1rem 1.25rem', fontWeight: 700, color: 'var(--color-deep-forest)' }}>
+                  <td style={{ padding: '1rem 1.25rem', fontWeight: 700, color: 'var(--text)' }}>
                     {paper.company}
                   </td>
-                  <td style={{ padding: '1rem 1.25rem', color: 'var(--color-charcoal-subtle)' }}>
+                  <td style={{ padding: '1rem 1.25rem', color: 'var(--text)' }}>
                     {paper.exam}
                   </td>
-                  <td style={{ padding: '1rem 1.25rem', fontWeight: 600, color: 'var(--color-deep-forest)' }}>
+                  <td style={{ padding: '1rem 1.25rem', fontWeight: 600, color: 'var(--text)' }}>
                     {paper.year}
                   </td>
-                  <td style={{ padding: '1rem 1.25rem', fontWeight: 700, color: 'var(--color-emerald)' }}>
+                  <td style={{ padding: '1rem 1.25rem', fontWeight: 700, color: 'var(--accent)' }}>
                     {paper.questions}
                   </td>
                   <td style={{ padding: '1rem 1.25rem' }}>
@@ -151,11 +151,11 @@ export const QuestionPaperTable = ({
                       style={{
                         padding: '3px 8px',
                         borderRadius: '4px',
-                        backgroundColor: 'var(--color-ivory-surface)',
+                        backgroundColor: 'var(--surface)',
                         border: '1px solid var(--color-border-subtle)',
                         fontSize: '0.75rem',
                         fontWeight: 600,
-                        color: 'var(--color-deep-forest)',
+                        color: 'var(--text)',
                       }}
                     >
                       {paper.type}
@@ -173,14 +173,14 @@ export const QuestionPaperTable = ({
                           border: 'none',
                           cursor: 'pointer',
                           padding: '6px',
-                          color: 'var(--color-emerald)',
+                          color: 'var(--accent)',
                           borderRadius: 'var(--radius-sm)',
                         }}
                         title="View & Review Questions"
                       >
                         <Eye size={17} />
                       </button>
-                      <button
+                      {onEditPaper && (<button
                         onClick={() => onEditPaper(paper)}
                         style={{
                           background: 'none',
@@ -193,8 +193,8 @@ export const QuestionPaperTable = ({
                         title="Edit Details"
                       >
                         <Edit3 size={17} />
-                      </button>
-                      <button
+                      </button>)}
+                      {onDeletePaper && (<button
                         onClick={() => onDeletePaper(paper.id)}
                         style={{
                           background: 'none',
@@ -207,7 +207,7 @@ export const QuestionPaperTable = ({
                         title="Delete Paper"
                       >
                         <Trash2 size={17} />
-                      </button>
+                      </button>)}
                     </div>
                   </td>
                 </tr>

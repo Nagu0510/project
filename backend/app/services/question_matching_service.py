@@ -3,9 +3,10 @@ from typing import List, Optional, Dict, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from app.models.question_paper import QuestionMatchResponse, MatchDetail
-from app.database import db_manager
+from app.repositories import questions as question_repo
+from app.config import settings
 
-MATCH_THRESHOLD = 0.82
+MATCH_THRESHOLD = getattr(settings, "SIMILARITY_THRESHOLD", 0.70)
 
 # Global cached index structures
 _CACHED_QUESTIONS: List[Dict[str, Any]] = []
@@ -19,58 +20,58 @@ def invalidate_question_matching_cache():
     _CACHED_VECTORIZER = None
     _CACHED_TFIDF_MATRIX = None
 
+def format_exam_origin(company: Optional[str], exam: Optional[str], year: Optional[object]) -> str:
+    """"TCS NQT (2025)" from a company, exam name and year, without repeating any of them.
+
+    The company is not prepended when the exam name already contains it, and the year is not
+    appended when the exam name already carries it. A missing year or exam name is left out.
+    """
+    short = re.split(r"\s*\(", (company or "").strip())[0].strip()  # "TCS (Tata Consultancy Services)" -> "TCS"
+    name = (exam or "").strip()
+    year_text = str(year).strip() if year not in (None, "", 0) else ""
+
+    if year_text:
+        # remove the year wherever the exam name carries it ("— 2025", "(2025)", "2025"), then tidy separators
+        name = re.sub(rf"\s*[(\[]?\s*(?<!\d){re.escape(year_text)}(?!\d)\s*[)\]]?", " ", name)
+        name = re.sub(r"\s+", " ", name).strip(" \t-\u2014\u2013:,")
+
+    has_company = bool(short) and re.search(rf"(?<!\w){re.escape(short)}(?!\w)", name, re.I) is not None
+    label = " ".join(part for part in (short if not has_company else "", name) if part) or "Previous placement paper"
+    return f"{label} ({year_text})" if year_text else label
+
+
 def _clean_text(text: str) -> str:
     if not text:
         return ""
     text_clean = re.sub(r'[^a-zA-Z0-9\s]', ' ', text.lower())
     return ' '.join(text_clean.split())
 
-def _get_published_questions() -> List[Dict[str, Any]]:
-    """Retrieve approved/published questions from in-memory store and MongoDB"""
-    raw_qs = list(db_manager._memory_store["previous_questions"].values())
-    published = [q for q in raw_qs if q.get("status") in ["approved", "published"]]
-    
-    # Also check extracted_questions approved by admin
-    extracted = list(db_manager._memory_store["extracted_questions"].values())
-    for eq in extracted:
-        if eq.get("status") in ["approved", "published"]:
-            published.append({
-                "id": eq.get("id"),
-                "company": eq.get("company", "Corporate"),
-                "companies": [eq.get("company", "Corporate")],
-                "exam": eq.get("exam", "Placement Paper"),
-                "year": eq.get("year", 2025),
-                "question_text": eq.get("question_text", ""),
-                "normalized_text": eq.get("normalized_text") or _clean_text(eq.get("question_text", "")),
-                "topic": eq.get("topic", "General"),
-                "difficulty": eq.get("difficulty", "Medium"),
-                "appearances_count": eq.get("appearances_count", 1),
-            })
+async def _get_published_questions_async() -> List[Dict[str, Any]]:
+    """Only published questions are indexed. Approving a question publishes it (see routers/admin.py);
+    needs_review and rejected questions never reach this pool."""
+    return await question_repo.published_previous()
 
-    return published
 
-def _build_tfidf_index():
+async def _build_tfidf_index_async():
     global _CACHED_QUESTIONS, _CACHED_VECTORIZER, _CACHED_TFIDF_MATRIX
-    questions = _get_published_questions()
+    # Keep only questions that have text so row i of the matrix is always questions[i].
+    questions = [
+        q for q in await _get_published_questions_async()
+        if _clean_text(q.get("question_text", "") or q.get("normalized_text", "")).strip()
+    ]
+    _CACHED_QUESTIONS, _CACHED_VECTORIZER, _CACHED_TFIDF_MATRIX = questions, None, None
     if not questions:
-        _CACHED_QUESTIONS = []
-        _CACHED_VECTORIZER = None
-        _CACHED_TFIDF_MATRIX = None
         return
 
     texts = [_clean_text(q.get("question_text", "") or q.get("normalized_text", "")) for q in questions]
-    vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words='english')
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english")
     try:
-        tfidf_matrix = vectorizer.fit_transform(texts)
-        _CACHED_QUESTIONS = questions
+        _CACHED_TFIDF_MATRIX = vectorizer.fit_transform(texts)
         _CACHED_VECTORIZER = vectorizer
-        _CACHED_TFIDF_MATRIX = tfidf_matrix
-    except Exception:
-        _CACHED_QUESTIONS = questions
-        _CACHED_VECTORIZER = None
+    except ValueError:  # e.g. every question is only stop words: exact/Jaccard layers still work
         _CACHED_TFIDF_MATRIX = None
 
-def find_historical_question_match(
+async def find_historical_question_match(
     query_text: str,
     query_topic: Optional[str] = None
 ) -> QuestionMatchResponse:
@@ -94,11 +95,11 @@ def find_historical_question_match(
             matches=[]
         )
 
-    # Ensure index built
-    if _CACHED_VECTORIZER is None or _CACHED_TFIDF_MATRIX is None:
-        _build_tfidf_index()
+    # Ensure TF-IDF index is populated from MongoDB
+    if _CACHED_VECTORIZER is None or _CACHED_TFIDF_MATRIX is None or not _CACHED_QUESTIONS:
+        await _build_tfidf_index_async()
 
-    questions = _CACHED_QUESTIONS or _get_published_questions()
+    questions = _CACHED_QUESTIONS or (await _get_published_questions_async())
     if not questions:
         return QuestionMatchResponse(
             matched=False,
@@ -139,20 +140,15 @@ def find_historical_question_match(
 
     # Layer 3 & 4: TF-IDF + Cosine Similarity
     if _CACHED_VECTORIZER is not None and _CACHED_TFIDF_MATRIX is not None:
-        try:
-            query_vec = _CACHED_VECTORIZER.transform([clean_query])
-            cosine_sims = cosine_similarity(query_vec, _CACHED_TFIDF_MATRIX)[0]
-            for idx, score in enumerate(cosine_sims):
-                score_float = round(float(score), 2)
-                if score_float >= MATCH_THRESHOLD:
-                    q_obj = questions[idx]
-                    # Avoid duplicate entry
-                    if not any(m[1].get("id") == q_obj.get("id") for m in matches_list):
-                        matches_list.append((score_float, q_obj))
-        except Exception:
-            pass
+        query_vec = _CACHED_VECTORIZER.transform([clean_query])
+        cosine_sims = cosine_similarity(query_vec, _CACHED_TFIDF_MATRIX)[0]
+        for idx, score in enumerate(cosine_sims):
+            score_float = round(float(score), 2)
+            if score_float >= MATCH_THRESHOLD:
+                q_obj = questions[idx]
+                if not any(m[1].get("id") == q_obj.get("id") for m in matches_list):
+                    matches_list.append((score_float, q_obj))
 
-    # Sort matches by similarity score descending
     matches_list.sort(key=lambda x: x[0], reverse=True)
 
     if not matches_list:
@@ -168,11 +164,10 @@ def find_historical_question_match(
             matches=[]
         )
 
-    # Format response
     top_score, top_q = matches_list[0]
     top_company = top_q.get("company") or (top_q.get("companies")[0] if top_q.get("companies") else "Corporate")
     top_exam = top_q.get("exam") or top_q.get("exam_origin") or "Placement Drive"
-    top_year = top_q.get("year", 2025)
+    top_year = top_q.get("year")
 
     best_match_detail = MatchDetail(
         company=top_company,
@@ -188,7 +183,7 @@ def find_historical_question_match(
     for score, q in matches_list:
         c_name = q.get("company") or (q.get("companies")[0] if q.get("companies") else "Corporate")
         ex_name = q.get("exam") or q.get("exam_origin") or "Placement Drive"
-        yr = q.get("year", 2025)
+        yr = q.get("year")
         all_match_details.append(MatchDetail(company=c_name, exam=ex_name, year=yr, similarity=score))
         if c_name not in seen_companies:
             seen_companies.add(c_name)
@@ -199,7 +194,7 @@ def find_historical_question_match(
         similarity=top_score,
         topic=top_q.get("topic", query_topic or "General"),
         difficulty=top_q.get("difficulty", "Medium"),
-        exam_origin=f"{top_company} {top_exam} ({top_year})",
+        exam_origin=format_exam_origin(top_company, top_exam, top_year),
         appearances_count=len(matches_list),
         companies=distinct_companies,
         best_match=best_match_detail,

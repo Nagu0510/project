@@ -1,39 +1,31 @@
-# Dependencies
-node_modules/
-.pnp
-.pnp.js
+# dependencies and environments
+node_modules
+.venv
+venv
+backend/python_bin
 
-# Testing
-coverage
+# build output and caches
+dist
+.vite
+__pycache__
+*.pyc
+.pytest_cache
 
-# Production / Build
-dist/
-build/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-python_bin/
-
-# Environment variables
+# secrets: never commit these (only the *.example templates are tracked)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 
-# IDE & OS files
-.DS_Store
+# test output and screenshots
+e2e/screenshots/
+e2e/.results/
+test-results/
+playwright-report/
+
+# archives made by make_share_zip.ps1
+*.zip
+
+# editors and OS
+.idea
+.vscode
 Thumbs.db
-.vscode/
-.idea/
-*.swp
-*.swo

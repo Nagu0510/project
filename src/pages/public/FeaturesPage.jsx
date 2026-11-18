@@ -16,13 +16,13 @@ export const FeaturesPage = () => {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-ivory)' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       <Navbar />
       <section style={{ paddingBlock: '6rem', textAlign: 'center', borderBottom: '1px solid var(--color-border-subtle)' }}>
         <div className="container-custom" style={{ maxWidth: '720px' }}>
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
             <span className="badge badge-lime" style={{ marginBottom: '1.5rem', display: 'inline-flex' }}>Platform Features</span>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 400, color: 'var(--color-forest)', letterSpacing: '-0.03em', marginBottom: '1.25rem' }}>
+            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(2.5rem, 5vw, 4rem)', fontWeight: 400, color: 'var(--text)', letterSpacing: '-0.03em', marginBottom: '1.25rem' }}>
               Everything you need, nothing you don't.
             </h1>
             <p style={{ fontSize: '1.125rem', color: 'var(--color-text-muted)', lineHeight: 1.7 }}>
@@ -31,21 +31,21 @@ export const FeaturesPage = () => {
           </motion.div>
         </div>
       </section>
-      <section style={{ paddingBlock: '5rem', background: 'var(--color-white)' }}>
+      <section style={{ paddingBlock: '5rem', background: 'var(--surface)' }}>
         <div className="container-custom">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
             {features.map((f, i) => (
               <motion.div key={f.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.07 }}>
                 <Link to={f.link} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>
-                  <div style={{ background: 'var(--color-ivory)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', padding: '2rem', height: '100%', transition: 'transform 250ms, box-shadow 250ms' }}
+                  <div style={{ background: 'var(--bg)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-xl)', padding: '2rem', height: '100%', transition: 'transform 250ms, box-shadow 250ms' }}
                     onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = 'var(--shadow-lg)'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
                     <div style={{ width: '40px', height: '40px', background: 'var(--color-forest)', borderRadius: 'var(--radius-md)', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ color: 'var(--color-lime)', fontWeight: 700 }}>&#x2726;</span>
                     </div>
-                    <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '1rem', fontWeight: 700, color: 'var(--color-forest)', marginBottom: '0.625rem' }}>{f.title}</h3>
+                    <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '1rem', fontWeight: 700, color: 'var(--text)', marginBottom: '0.625rem' }}>{f.title}</h3>
                     <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', lineHeight: 1.65 }}>{f.description}</p>
-                    <div style={{ marginTop: '1rem', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--color-emerald)' }}>Explore feature →</div>
+                    <div style={{ marginTop: '1rem', fontSize: '0.8125rem', fontWeight: 700, color: 'var(--accent)' }}>Explore feature →</div>
                   </div>
                 </Link>
               </motion.div>

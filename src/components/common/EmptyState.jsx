@@ -20,7 +20,7 @@ export const EmptyState = ({
         justifyContent: 'center',
         padding: '3.5rem 2rem',
         textAlign: 'center',
-        backgroundColor: 'var(--color-white)',
+        backgroundColor: 'var(--surface)',
         borderRadius: 'var(--radius-xl)',
         border: '1px dashed var(--color-border-medium)',
       }}
@@ -30,12 +30,12 @@ export const EmptyState = ({
           width: '56px',
           height: '56px',
           borderRadius: 'var(--radius-full)',
-          backgroundColor: 'var(--color-ivory-surface)',
+          backgroundColor: 'var(--surface)',
           border: '1px solid var(--color-border-subtle)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: 'var(--color-emerald)',
+          color: 'var(--accent)',
           marginBottom: '1rem',
         }}
       >
@@ -46,7 +46,7 @@ export const EmptyState = ({
         style={{
           fontSize: '1.25rem',
           fontFamily: 'var(--font-serif)',
-          color: 'var(--color-deep-forest)',
+          color: 'var(--text)',
           margin: '0 0 0.35rem 0',
         }}
       >

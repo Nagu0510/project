@@ -4,6 +4,7 @@ import { Mail, ArrowLeft, CheckCircle2, Sparkles } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
 import { useToast } from '../context/ToastContext';
+import { authService } from '../services/authService';
 
 export const ForgotPasswordPage = () => {
   const navigate = useNavigate();
@@ -12,7 +13,7 @@ export const ForgotPasswordPage = () => {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !email.includes('@')) {
       addToast('Please provide a valid email address', 'error');
@@ -20,18 +21,21 @@ export const ForgotPasswordPage = () => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      await authService.forgotPassword(email.trim());
       setSubmitted(true);
-      addToast(`Password recovery link sent to ${email}`, 'success');
-    }, 600);
+    } catch (err) {
+      addToast(err?.message || 'Could not start password recovery. Please try again.', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: 'var(--color-warm-ivory)',
+        backgroundColor: 'var(--bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -43,7 +47,7 @@ export const ForgotPasswordPage = () => {
         style={{
           width: '100%',
           maxWidth: '480px',
-          backgroundColor: 'var(--color-white)',
+          backgroundColor: 'var(--surface)',
           borderRadius: 'var(--radius-2xl)',
           padding: '2.5rem',
           border: '1px solid var(--color-border-subtle)',
@@ -80,7 +84,7 @@ export const ForgotPasswordPage = () => {
             style={{
               fontFamily: 'var(--font-serif)',
               fontSize: '1.45rem',
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
             }}
           >
             SkillSense AI
@@ -93,7 +97,7 @@ export const ForgotPasswordPage = () => {
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: '1.85rem',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
                 margin: '0 0 0.5rem 0',
               }}
             >
@@ -138,7 +142,7 @@ export const ForgotPasswordPage = () => {
                   to="/login"
                   style={{
                     fontSize: '0.885rem',
-                    color: 'var(--color-emerald)',
+                    color: 'var(--accent)',
                     fontWeight: 600,
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -157,22 +161,22 @@ export const ForgotPasswordPage = () => {
                 width: '60px',
                 height: '60px',
                 borderRadius: 'var(--radius-full)',
-                backgroundColor: 'var(--color-lime-soft)',
+                backgroundColor: 'var(--lime-soft)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 1.25rem',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
               }}
             >
-              <CheckCircle2 size={32} color="var(--color-emerald)" />
+              <CheckCircle2 size={32} color="var(--accent)" />
             </div>
 
             <h3
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: '1.65rem',
-                color: 'var(--color-deep-forest)',
+                color: 'var(--text)',
                 margin: '0 0 0.5rem 0',
               }}
             >
@@ -181,12 +185,12 @@ export const ForgotPasswordPage = () => {
             <p
               style={{
                 fontSize: '0.9rem',
-                color: 'var(--color-charcoal-subtle)',
+                color: 'var(--text)',
                 marginBottom: '1.75rem',
                 lineHeight: 1.5,
               }}
             >
-              We sent password reset instructions to <strong>{email}</strong>. Please follow the instructions in the email.
+              If an account exists for <strong>{email}</strong>, a password reset link has been sent. The link expires in 30 minutes.
             </p>
 
             <Link to="/login" style={{ display: 'block', width: '100%' }}>
@@ -200,3 +204,5 @@ export const ForgotPasswordPage = () => {
     </div>
   );
 };
+
+export default ForgotPasswordPage;

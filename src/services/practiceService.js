@@ -1,84 +1,65 @@
 import { api } from './api';
-import { mockCodingProblems } from '../data/mockCodingProblems';
 import { normalizeProblem, normalizeProblemList } from '../utils/normalizers';
+import { normalizeRunResult, normalizeSubmitResult } from '../utils/practiceHelpers';
 
 export const practiceService = {
-  // Coding IDE problems
+  // Coding problems (API data only; an empty list becomes an empty state in the page)
   async getProblems(params = {}) {
-    try {
-      const queryStr = new URLSearchParams(params).toString();
-      const endpoint = queryStr ? `/practice/problems?${queryStr}` : '/practice/problems';
-      const data = await api.get(endpoint);
-      const normalized = normalizeProblemList(data);
-      if (normalized.length > 0) return normalized;
-      return normalizeProblemList(mockCodingProblems);
-    } catch {
-      return normalizeProblemList(mockCodingProblems);
-    }
+    const queryStr = new URLSearchParams(params).toString();
+    const data = await api.get(queryStr ? `/practice/problems?${queryStr}` : '/practice/problems');
+    return normalizeProblemList(data);
   },
 
   async getProblemBySlug(slug) {
-    try {
-      const data = await api.get(`/practice/problems/${encodeURIComponent(slug)}`);
-      const normalized = normalizeProblem(data);
-      if (normalized) return normalized;
-      const fallback = mockCodingProblems[slug] || Object.values(mockCodingProblems)[0];
-      return normalizeProblem(fallback);
-    } catch {
-      const fallback = mockCodingProblems[slug] || Object.values(mockCodingProblems)[0];
-      return normalizeProblem(fallback);
-    }
+    const data = await api.get(`/practice/problems/${encodeURIComponent(slug)}`);
+    return normalizeProblem(data);
   },
 
-  async runCode(problemId, language, sourceCode, stdin = '') {
-    try {
-      return await api.post('/practice/code/run', {
-        problem_id: problemId,
-        language: language,
-        source_code: sourceCode,
-        stdin: stdin,
-      });
-    } catch (err) {
-      console.warn('Run code endpoint error:', err);
-      return {
-        status: 'Error',
-        stdout: '',
-        stderr: err.message || 'Execution error encountered.',
-        compile_output: '',
-        runtime_ms: 0,
-        memory_kb: 0,
-      };
-    }
+  // Run / submit throw on failure (401, 413, 422, 429, 503, network) so the page can tell the user exactly what happened.
+  // `cases` is a list of "name = value" texts (examples as edited, plus custom cases); leave it out to run the shown examples.
+  async runCode(slug, language, sourceCode, cases) {
+    const body = { problem_slug: slug, language, source_code: sourceCode };
+    if (Array.isArray(cases)) body.cases = cases;
+    return normalizeRunResult(await api.post('/practice/code/run', body, { timeoutMs: 60000 }));
   },
 
-  async submitCode(problemId, language, sourceCode) {
-    try {
-      return await api.post('/practice/code/submit', {
-        problem_id: problemId,
-        language: language,
-        source_code: sourceCode,
-      });
-    } catch (err) {
-      console.warn('Submit code endpoint error:', err);
-      return {
-        status: 'Error',
-        passed_count: 0,
-        total_count: 1,
-        stdout: '',
-        stderr: err.message || 'Submission evaluation error.',
-        compile_output: '',
-        runtime_ms: 0,
-        memory_kb: 0,
-        test_results: [],
-      };
-    }
+  // Judges every test case in one execution.
+  async submitCode(slug, language, sourceCode) {
+    return normalizeSubmitResult(await api.post('/practice/code/submit', { problem_slug: slug, language, source_code: sourceCode }, { timeoutMs: 120000 }));
+  },
+
+  // Slugs of the problems this student has an Accepted submission for
+  async getSolved() {
+    const data = await api.get('/practice/solved');
+    return Array.isArray(data?.solved) ? data.solved : [];
+  },
+
+  // One hint at a time (1, 2, 3)
+  async getHint(slug, level) {
+    return api.get(`/practice/problems/${encodeURIComponent(slug)}/hints?level=${encodeURIComponent(level)}`);
+  },
+
+  // This student's last 20 judged submissions of one problem, newest first
+  async getSubmissions(slug) {
+    const rows = await api.get(`/practice/problems/${encodeURIComponent(slug)}/submissions`);
+    return (Array.isArray(rows) ? rows : []).map((r) => ({
+      id: r.id,
+      language: r.language,
+      verdict: r.verdict,
+      runtimeMs: r.runtime_ms ?? null,
+      memoryKb: r.memory_kb ?? null,
+      passedCount: r.passed_count ?? null,
+      totalCount: r.total_count ?? null,
+      createdAt: r.created_at,
+      code: r.code || '',
+    }));
   },
 
   async matchQuestionIntelligence(questionId, questionText) {
     try {
       return await api.post('/question-intelligence/match', {
         question_id: questionId,
-        question_text: questionText,
+        question_text: questionText.slice(0, 5000),
       });
     } catch (err) {
       console.warn('Question intelligence match error:', err);
@@ -92,19 +73,8 @@ export const practiceService = {
     }
   },
 
-  async submitAttempt(slug, language, code) {
-    try {
-      return await api.post(`/practice/problems/${encodeURIComponent(slug)}/attempt`, {
-        language,
-        code,
-      });
-    } catch {
-      return {
-        id: `att-local-${Date.now()}`,
-        status: 'Accepted',
-        message: 'Solution recorded in candidate portfolio session.',
-      };
-    }
+  submitAttempt(slug, language, code) {
+    return api.post(`/practice/problems/${encodeURIComponent(slug)}/attempt`, { language, code });
   },
 
   // Interactive Question Practice (MCQs, Code Output, Find Error)
@@ -124,32 +94,36 @@ export const practiceService = {
     }
   },
 
-  async answerQuestion(questionId, selectedOptionIndex) {
-    try {
-      return await api.post(`/practice/questions/${encodeURIComponent(questionId)}/answer`, {
-        selected_option_index: selectedOptionIndex,
-      });
-    } catch (err) {
-      console.warn('Practice answer submission fallback:', err);
-      return {
-        question_id: questionId,
-        is_correct: true,
-        explanation: 'Answer submitted in offline practice mode.',
-      };
-    }
+  answerQuestion(questionId, selectedOptionIndex) {
+    return api.post(`/practice/questions/${encodeURIComponent(questionId)}/answer`, {
+      selected_option_index: selectedOptionIndex,
+    });
   },
 
-  async getStats() {
-    try {
-      return await api.get('/practice/stats');
-    } catch {
-      return {
-        total_solved: 15,
-        correct_count: 13,
-        accuracy_percentage: 86,
-        streak_days: 5,
-      };
-    }
+  getStats() {
+    return api.get('/practice/stats');
+  },
+
+  // Daily challenge, streaks and badges (see backend/app/services/daily_challenge_service.py for the day rules)
+  getDaily() {
+    return api.get('/practice/daily');
+  },
+
+  getAchievements() {
+    return api.get('/practice/achievements');
+  },
+
+  // "My submissions": one page of the student's own judged submissions; filters are { verdict, language, difficulty }
+  getMySubmissions({ page = 1, pageSize = 20, verdict = '', language = '', difficulty = '' } = {}) {
+    const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+    if (verdict) params.set('verdict', verdict);
+    if (language) params.set('language', language);
+    if (difficulty) params.set('difficulty', difficulty);
+    return api.get(`/practice/submissions?${params.toString()}`);
+  },
+
+  getMySubmission(id) {
+    return api.get(`/practice/submissions/${encodeURIComponent(id)}`);
   },
 };
 

@@ -1,86 +1,65 @@
-from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Optional
-from app.models.roadmap import RoadmapResponse, ProgressUpdate
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.models.roadmap import ProgressUpdate, RoadmapResponse
 from app.models.user import UserOut
-from app.utils.security import require_student, get_optional_current_user
-from app.services.roadmap_service import generate_personalized_roadmap
-from app.database import db_manager
+from app.repositories import assessment_bank, attempts, career_paths, courses, roadmaps
+from app.services.roadmap_service import SAVED_STATUSES, best_scores_from, build_roadmap
+from app.utils.security import get_optional_current_user, require_student
 
 router = APIRouter(prefix="/student/roadmap", tags=["Roadmaps"])
+
+
+async def _build_for(config: dict, user: Optional[UserOut]) -> RoadmapResponse:
+    """The roadmap of one career path for one student (or for a guest, who has no progress)."""
+    sets_by_course: dict = {}
+    for s in await assessment_bank.list_sets():
+        if s.get("course_slug"):
+            sets_by_course.setdefault(s["course_slug"], []).append(s)
+    return build_roadmap(
+        config,
+        progress=await roadmaps.get_progress(user.id, config["title"]) if user else {},
+        gap_topics=user.gap_topics if user else [],
+        courses=await courses.list_courses(),
+        sets_by_course=sets_by_course,
+        best_scores=best_scores_from(await attempts.for_user(user.id)) if user else {},
+    )
+
 
 @router.get("", response_model=RoadmapResponse)
 async def get_roadmap(
     career_path: Optional[str] = None,
-    current_user: Optional[UserOut] = Depends(get_optional_current_user)
+    current_user: Optional[UserOut] = Depends(get_optional_current_user),
 ):
-    target_path = career_path or (current_user.current_path if current_user else "Backend Developer") or "Backend Developer"
-    gaps = current_user.gap_skills if current_user else ["System Design", "Docker", "DSA"]
+    identifier = career_path or (current_user.current_path if current_user else None)
+    if not identifier:
+        raise HTTPException(status_code=400, detail="Select a career path to see its roadmap.")
+    config = await career_paths.find(identifier)
+    if not config:
+        raise HTTPException(status_code=404, detail="Career path not found")
+    return await _build_for(config, current_user)
 
-    # Generate personalized career roadmap
-    roadmap_res = generate_personalized_roadmap(target_path, gaps)
-
-    if current_user:
-        user_id = current_user.id
-        saved_progress = None
-
-        # Check MongoDB first
-        if db_manager.is_connected and db_manager.db is not None:
-            try:
-                db_roadmap = await db_manager.db["roadmaps"].find_one({"user_id": user_id, "career_path": target_path})
-                if not db_roadmap:
-                    # Also check generic user_id
-                    db_roadmap = await db_manager.db["roadmaps"].find_one({"user_id": user_id})
-                if db_roadmap:
-                    saved_progress = db_roadmap.get("milestones_progress", {})
-            except Exception:
-                pass
-
-        # Check memory store fallback
-        if not saved_progress:
-            saved_progress = db_manager._memory_store.get("roadmaps", {}).get(user_id, {})
-
-        if saved_progress:
-            completed_count = 0
-            for m in roadmap_res.milestones:
-                if m.id in saved_progress:
-                    m.status = saved_progress[m.id]
-                if m.status == "completed":
-                    completed_count += 1
-            if len(roadmap_res.milestones) > 0:
-                roadmap_res.completion_percentage = int((completed_count / len(roadmap_res.milestones)) * 100)
-
-    return roadmap_res
 
 @router.put("/progress")
-async def update_roadmap_progress(
-    req: ProgressUpdate,
-    current_user: UserOut = Depends(require_student)
-):
-    user_id = current_user.id
-    target_path = current_user.current_path or "Backend Developer"
+async def update_roadmap_progress(req: ProgressUpdate, current_user: UserOut = Depends(require_student)):
+    if req.status not in SAVED_STATUSES:  # "locked" is worked out from the rules, a student cannot set it
+        raise HTTPException(status_code=422, detail=f"status must be one of: {', '.join(sorted(SAVED_STATUSES))}")
+    config = await career_paths.find(current_user.current_path or "")
+    if not config:
+        raise HTTPException(status_code=400, detail="Select a career path first.")
+    if req.milestone_id not in {m["id"] for m in config.get("milestones", [])}:
+        raise HTTPException(status_code=404, detail="Milestone not found on your current career path")
 
-    if "roadmaps" not in db_manager._memory_store:
-        db_manager._memory_store["roadmaps"] = {}
-    if user_id not in db_manager._memory_store["roadmaps"]:
-        db_manager._memory_store["roadmaps"][user_id] = {}
-
-    db_manager._memory_store["roadmaps"][user_id][req.milestone_id] = req.status
-
-    if db_manager.is_connected and db_manager.db is not None:
-        try:
-            await db_manager.db["roadmaps"].update_one(
-                {"user_id": user_id},
-                {
-                    "$set": {
-                        f"milestones_progress.{req.milestone_id}": req.status,
-                        "career_path": target_path,
-                    }
-                },
-                upsert=True
+    if req.status != "not_started":
+        current = next(m for m in (await _build_for(config, current_user)).milestones if m.id == req.milestone_id)
+        if current.status == "locked":
+            raise HTTPException(
+                status_code=409,
+                detail="This milestone is locked. Complete the previous milestone, or pass its assessment with 70% or more.",
             )
-        except Exception:
-            pass
 
+    await roadmaps.set_progress(current_user.id, config["title"], req.milestone_id, req.status)
     return {
         "success": True,
         "milestone_id": req.milestone_id,
@@ -88,11 +67,8 @@ async def update_roadmap_progress(
         "message": f"Milestone {req.milestone_id} marked as {req.status}",
     }
 
+
 @router.put("/{step_id}/progress")
-async def update_step_progress(
-    step_id: str,
-    req: ProgressUpdate,
-    current_user: UserOut = Depends(require_student)
-):
+async def update_step_progress(step_id: str, req: ProgressUpdate, current_user: UserOut = Depends(require_student)):
     req.milestone_id = step_id
     return await update_roadmap_progress(req, current_user)

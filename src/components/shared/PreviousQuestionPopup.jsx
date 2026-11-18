@@ -47,11 +47,11 @@ export const PreviousQuestionPopup = ({
           zIndex: 800,
           width: '340px',
           maxWidth: 'calc(100vw - 32px)',
-          backgroundColor: 'var(--color-white)',
-          border: '1.5px solid rgba(15, 118, 110, 0.35)',
+          backgroundColor: 'var(--surface)',
+          border: '1.5px solid var(--accent-soft-strong)',
           borderRadius: 'var(--radius-xl)',
           padding: '1.25rem',
-          boxShadow: '0 16px 36px -6px rgba(6, 46, 37, 0.16), 0 0 20px -2px rgba(199, 243, 107, 0.25)',
+          boxShadow: '0 16px 36px -6px rgba(var(--shadow-color), 0.16), 0 0 20px -2px var(--color-lime-glow)',
           backdropFilter: 'blur(10px)',
         }}
       >
@@ -81,7 +81,7 @@ export const PreviousQuestionPopup = ({
                 fontSize: '0.78rem',
                 letterSpacing: '0.05em',
                 textTransform: 'uppercase',
-                color: 'var(--color-emerald)',
+                color: 'var(--accent)',
               }}
             >
               Previously Asked
@@ -93,8 +93,8 @@ export const PreviousQuestionPopup = ({
               style={{
                 fontSize: '0.75rem',
                 fontWeight: 700,
-                backgroundColor: 'var(--color-lime-soft)',
-                color: 'var(--color-deep-forest)',
+                backgroundColor: 'var(--lime-soft)',
+                color: 'var(--text)',
                 padding: '2px 8px',
                 borderRadius: 'var(--radius-full)',
               }}
@@ -129,7 +129,7 @@ export const PreviousQuestionPopup = ({
             style={{
               fontFamily: 'var(--font-serif)',
               fontSize: '1.15rem',
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
               lineHeight: 1.25,
             }}
           >
@@ -151,21 +151,21 @@ export const PreviousQuestionPopup = ({
             style={{
               padding: '3px 8px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-ivory-surface)',
+              backgroundColor: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
               fontWeight: 600,
             }}
           >
-            Topic: <strong style={{ color: 'var(--color-emerald)' }}>{topic}</strong>
+            Topic: <strong style={{ color: 'var(--accent)' }}>{topic}</strong>
           </div>
           <div
             style={{
               padding: '3px 8px',
               borderRadius: 'var(--radius-sm)',
-              backgroundColor: 'var(--color-ivory-surface)',
+              backgroundColor: 'var(--surface)',
               border: '1px solid var(--color-border-subtle)',
-              color: 'var(--color-deep-forest)',
+              color: 'var(--text)',
               fontWeight: 600,
             }}
           >

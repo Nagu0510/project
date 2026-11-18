@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class CareerPath(BaseModel):
@@ -6,7 +6,7 @@ class CareerPath(BaseModel):
     title: str
     slug: Optional[str] = None
     description: str
-    match_percentage: int
+    match_percentage: int = 0  # computed per student from their skills (0 for guests); never stored
     required_skills: List[str]
     average_salary: str
     active_openings: int
@@ -18,6 +18,6 @@ class CareerPath(BaseModel):
         extra = "ignore"
 
 class CareerSelectRequest(BaseModel):
-    career_path_id: Optional[str] = None
-    career_path_title: Optional[str] = None
-    career_path: Optional[str] = None
+    career_path_id: Optional[str] = Field(None, max_length=100)
+    career_path_title: Optional[str] = Field(None, max_length=200)
+    career_path: Optional[str] = Field(None, max_length=100)

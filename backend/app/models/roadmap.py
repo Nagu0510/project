@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 class RoadmapMilestone(BaseModel):
@@ -12,6 +12,9 @@ class RoadmapMilestone(BaseModel):
     score: Optional[int] = None
     action_label: str = "Explore Concepts"
     is_priority_gap: bool = False
+    course_slugs: List[str] = []       # real courses (from the courses collection) that teach this milestone
+    courses: List[dict] = []           # {slug, title}
+    practice_sets: List[dict] = []     # {id, title, difficulty} assessment sets of those courses
 
     class Config:
         extra = "ignore"
@@ -26,5 +29,5 @@ class RoadmapResponse(BaseModel):
         extra = "ignore"
 
 class ProgressUpdate(BaseModel):
-    milestone_id: str
-    status: str  # 'completed' | 'in_progress' | 'not_started' | 'locked'
+    milestone_id: str = Field(..., max_length=64)
+    status: str = Field(..., max_length=30)  # 'completed' | 'in_progress' | 'not_started' | 'locked'
