@@ -1,2 +1,2 @@
-/api/*  https://REPLACE_WITH_YOUR_BACKEND_URL/api/:splat  200
+/api/*  https://project-4-xoi7.onrender.com/api/:splat  200
 /*      /index.html                                     200
